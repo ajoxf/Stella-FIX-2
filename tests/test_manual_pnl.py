@@ -9,7 +9,7 @@ def fill_open(terminal, quantity='2', price='-0.5'):
     return order_id
 
 
-def test_floating_pnl_uses_fresh_tt_mid_and_tick_value(terminal):
+def test_floating_pnl_uses_fresh_stellar_mid_and_tick_value(terminal):
     order_id = fill_open(terminal)
     request = terminal.subscriptions['101']
     raw = f'35=W\x01262={request}\x01268=2\x01269=0\x01270=0.5\x01271=3\x01269=1\x01270=1.0\x01271=4\x01'
@@ -18,7 +18,7 @@ def test_floating_pnl_uses_fresh_tt_mid_and_tick_value(terminal):
     position = next(p for p in pnl['positions'] if p['entry_order_id'] == order_id)
     assert position['mark_price'] == 0.75
     assert position['floating_pnl'] == 125.0
-    assert position['mark_source'] == 'TT FIX bid/ask midpoint'
+    assert position['mark_source'] == 'Stellar FIX bid/ask midpoint'
     assert pnl['account']['balance'] is None
 
 

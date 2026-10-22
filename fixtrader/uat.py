@@ -1,5 +1,5 @@
 """UAT order tests: every order path the desk will use in a live market,
-placed for real on TT UAT and checked against what TT answers.
+placed for real on Stellar UAT and checked against what Stellar answers.
 
 Run it from the screen — the ORDER TESTS page (/order-tests) — or against
 the running program from a terminal:
@@ -8,7 +8,7 @@ the running program from a terminal:
 
 It drives the program the way the screen does — the same commands the ladder
 and the Algo window send — so what is tested is the path a trader uses, not a
-side door. Each scenario places its orders, waits for TT's answer, checks the
+side door. Each scenario places its orders, waits for Stellar's answer, checks the
 working order, the fill, the position and the close on this program's book,
 and reads back the FIX tags it actually sent (the FIX log). It cleans up after
 itself: anything of its own still working is cancelled and anything it opened
@@ -20,11 +20,11 @@ Manual (the ladder / manual ticket, FTM- orders):
   M3  MARKET opens; the position shows; a MARKET close by ticket (77=C) flattens
   M4  a marketable LIMIT fills; Close @ LMT rests (77=C); cancelled; market close
   M5  a LIMIT at the touch fills when the price is hit (waits; may not trade)
-  M6  an order TT refuses is shown in TT's own words (tag 58)
+  M6  an order Stellar refuses is shown in Stellar's own words (tag 58)
   M7  MARKET SELL opens a short; a MARKET close by ticket (77=C) flattens
   M8  SELL LIMIT above the market rests, shows as working, cancels
-Algo (its own path, FT- orders, 1028=N):
-  A1  MARKET opens; the Algo's position shows with TT's tickets; CLOSE NOW
+Algo (its own path, FT- orders, 452=11/24):
+  A1  MARKET opens; the Algo's position shows with Stellar's tickets; CLOSE NOW
       closes it by ticket (77=C)
   A2  LIMIT away from the market rests, shows as working, cancels
   A3  a marketable LIMIT fills; Close @ LMT rests pinned (77=C); CLOSE ALL
@@ -55,7 +55,7 @@ SCENARIOS = [
     ('M2', 'Manual: change the price of a waiting limit'),
     ('M4', 'Manual: buy limit through the offer fills; take-profit limit waits; CLOSE ALL'),
     ('M5', 'Manual: buy limit at the bid fills when the market comes to it'),
-    ('M6', "Manual: an order TT refuses shows TT's reason"),
+    ('M6', "Manual: an order Stellar refuses shows Stellar's reason"),
     ('A1', 'Algo: buys at market, then CLOSE ALL'),
     ('A5', 'Algo: sells at market (short), then CLOSE ALL'),
     ('A2', 'Algo: buy limit below the market waits, then cancel'),
@@ -80,7 +80,7 @@ SHORT = {
     'M2': 'Move a waiting limit to a new price',
     'M4': 'Buy limit through the offer, then a take-profit limit',
     'M5': 'Buy limit at the bid — wait for a seller',
-    'M6': 'An order TT rejects',
+    'M6': 'An order Stellar rejects',
     'A1': 'Algo buys at market, then close',
     'A5': 'Algo sells at market (goes short), then close',
     'A2': 'Algo buy limit below the market, then cancel',
@@ -94,13 +94,13 @@ EXPECT = {
     'M7': 'Fills at the bid straight away — you are short 1. CLOSE ALL buys it back: flat.',
     'M1': 'Waits in the book (Working orders) and does not fill. Cancel removes it.',
     'M8': 'Waits in the book above the market and does not fill. Cancel removes it.',
-    'M2': 'TT confirms the new price and the order keeps waiting there. Then cancelled.',
+    'M2': 'Stellar confirms the new price and the order keeps waiting there. Then cancelled.',
     'M4': 'Priced 2 ticks above the offer, so it fills at once — at the offer or better. A Close @ '
           'LMT (take-profit) then waits above '
           'the market; it is cancelled and CLOSE ALL closes at market.',
     'M5': 'Waits at the bid until someone sells to it, then you are long 1 and it is closed. '
           'On a quiet market nobody may — then it is cancelled.',
-    'M6': 'Sent to an account TT does not know: shows REJECTED, with TT\'s own reason.',
+    'M6': 'Sent to an account Stellar does not know: shows REJECTED, with Stellar\'s own reason.',
     'A1': 'The Algo sends a buy, as on a signal. It fills; the Algo\'s position shows with its '
           'take-profit and stop loss. CLOSE ALL closes it: flat.',
     'A5': 'The Algo sends a sell, as on a signal. It fills short; CLOSE ALL buys it back: flat.',
@@ -118,9 +118,9 @@ HIT_SCENARIOS = ('M5', 'A4')
 #: for the live market, where nothing runs them for you.
 STEPS = {
     'M1': 'Ladder (Algo Off or Signals): click a Bids price well below the market → review → Send. '
-          'It shows in Work and in Trading Monitor › Working Orders (TT order id). Cancel it there; it goes.',
+          'It shows in Work and in Trading Monitor › Working Orders (Stellar order id). Cancel it there; it goes.',
     'M2': 'Instruments & orders: send a LIMIT well below the market; when acknowledged, Modify its price. '
-          'TT answers REPLACED at the new price (35=G, tag 44 in FIX logs). Cancel it.',
+          'Stellar answers REPLACED at the new price (35=G, tag 44 in FIX logs). Cancel it.',
     'M3': 'Ladder: BUY (market) → review → Send. The fill and the position show (Trading Monitor › Positions). '
           'CLOSE ALL → review: a SELL flagged CLOSE (77=C) for that ticket only. Flat.',
     'M8': 'Ladder (Algo Off): click an Asks price well above the market → review → Send. It waits; cancel it.',
@@ -130,15 +130,15 @@ STEPS = {
           'Cancel it; then CLOSE ALL closes at market.',
     'M5': 'Ladder: BUY LIMIT at the bid. It rests until the market trades there, then fills and the position shows. '
           'Close it. If the market never trades there, cancel it.',
-    'M6': 'Instruments & orders: send to an account TT does not know. The order shows REJECTED in TT\'s own words (tag 58).',
+    'M6': 'Instruments & orders: send to an account Stellar does not know. The order shows REJECTED in Stellar\'s own words (tag 58).',
     'A1': 'Hands-on ladder: Execution LIVE, Algo switch on Trades (ALGO LIVE). Market type, BUY: the Algo\'s order '
-          '(FT-, 77=O, 1028=N) fills; its position shows with TT tickets (not PAPER-) and its TP / SL on the Algo window. '
+          '(FT-, 77=O, 452=11/24) fills; its position shows with Stellar tickets (not PAPER-) and its TP / SL on the Algo window. '
           'CLOSE ALL closes it by ticket (77=C, "Close P<id>" in 58).',
     'A5': 'Algo switch on UAT. Market type, SELL: the Algo\'s order fills short; CLOSE ALL closes it by ticket.',
     'A2': 'Hands-on ladder, ALGO LIVE: click a Bids price well below the market — the Algo\'s LIMIT rests (Work column, '
           'Working Orders, FT- id). Cancel all (CXL All) pulls it.',
     'A3': 'Hands-on ladder, ALGO LIVE: BUY; then Close @ LMT above the market — it rests PINNED (77=C). CLOSE ALL '
-          'cancels it, and only on TT\'s CANCELLED sends ONE market close — never two closes at once.',
+          'cancels it, and only on Stellar\'s CANCELLED sends ONE market close — never two closes at once.',
     'A4': 'Hands-on ladder, ALGO LIVE: click the bid in Bids — the Algo\'s LIMIT rests and fills when the market '
           'trades there; then the Algo\'s TP / SL manage it (or CLOSE ALL).',
 }
@@ -190,23 +190,38 @@ class HttpDriver:
 
     def sent(self, clordid):
         """The messages this program SENT carrying `clordid` (11 or 41),
-        oldest first, as tag -> value (the FIX log, passwords redacted)."""
+        oldest first, as tag -> value (the FIX log, passwords redacted) —
+        and, from Stellar's Parties group, `acct` (452=24, the account) and
+        `ref` (452=1002, a close's position and tickets)."""
         rows = self._get('/api/fix-logs?limit=200&search=' +
                          urllib.request.quote(clordid)).get('rows', [])
         out = []
         for row in reversed(rows):
             if row.get('direction') != 'OUT':
                 continue
-            fields = {}
-            for part in str(row.get('raw', '')).split('|'):
-                tag, _, value = part.partition('=')
-                fields.setdefault(tag, value)
+            fields = sent_fields(row.get('raw', ''))
             if clordid in (fields.get('11'), fields.get('41')):
                 out.append(fields)
         return out
 
     def sleep(self, seconds):
         time.sleep(seconds)
+
+
+def sent_fields(raw):
+    """One logged FIX message as tag -> value (the first of each tag), with
+    Stellar's Parties group read out: `acct` (452=24), `ref` (452=1002, a
+    close's position and tickets), `user` (452=11)."""
+    fields, party = {}, None
+    for part in str(raw or '').split('|'):
+        tag, _, value = part.partition('=')
+        fields.setdefault(tag, value)
+        if tag == '448':
+            party = value
+        elif tag == '452' and party is not None:
+            fields.setdefault({'24': 'acct', '1002': 'ref', '11': 'user'}.get(value, 'p' + value), party)
+            party = None
+    return fields
 
 
 class ClientDriver(HttpDriver):
@@ -295,7 +310,7 @@ class OrderTestRun:
 
     def clear(self) -> Dict[str, Any]:
         """Forget every recorded result — a fresh page. Nothing is sent and
-        nothing at TT changes; refused while a run is going."""
+        nothing at Stellar changes; refused while a run is going."""
         with self.lock:
             if self.state.get('running'):
                 return {'ok': False, 'error': 'a test run is going — stop it first'}
@@ -466,7 +481,7 @@ class Runner:
         c = self.contract()
         m = c.get('market') or {}
         if m.get('bid') is None or m.get('ask') is None:
-            raise Failed('no bid/offer on the contract — is TT publishing it?')
+            raise Failed('no bid/offer on the contract — is Stellar publishing it?')
         tick = float(c.get('tick_size') or 0.01)
         return float(m['bid']), float(m['ask']), tick, int(c.get('decimals') or 4)
 
@@ -482,8 +497,8 @@ class Runner:
     at_market_tif.said = '3 (IOC) for a limit sent at market'
 
     def factor(self):
-        """TT's DisplayFactor (9787) for this contract: screen price = FIX
-        price x factor. 1 where TT gave none."""
+        """The contract's price factor: screen price = FIX price x factor.
+        Stellar sends trader prices, so it is 1."""
         sid = self.sid()
         for row in self.terminal().get('watchlist') or []:
             inst = row.get('instrument') or {}
@@ -495,7 +510,7 @@ class Runner:
         return 1.0
 
     def wire(self, price):
-        """Tag 44 must carry `price` in TT's FIX units — a check, named."""
+        """Tag 44 must carry `price` exactly — a check, named."""
         want = float(price) / self.factor()
 
         def check(have):
@@ -528,7 +543,7 @@ class Runner:
 
     def manual_status(self, oid, statuses, what=None, timeout=None):
         """Wait for the ticket to reach one of `statuses`. One that ended
-        somewhere else fails NOW, with what TT said — never 20 seconds of
+        somewhere else fails NOW, with what Stellar said — never 20 seconds of
         waiting for a fill that can no longer come."""
         seen = {}
 
@@ -546,7 +561,7 @@ class Runner:
         except Failed as e:
             if seen.get('status') and seen.get('status') not in self.FINAL:
                 raise Failed(f"{e}; it is {seen.get('status')}"
-                             + (f" — TT: {seen['text']}" if seen.get('text') else '')) from None
+                             + (f" — Stellar: {seen['text']}" if seen.get('text') else '')) from None
             raise
 
     def _ended(self, oid, o):
@@ -555,12 +570,12 @@ class Runner:
         ticket = o.get('ticket') or {}
         filled = float(o.get('filled_qty') or 0)
         if status in ('CANCELED', 'EXPIRED') and ticket.get('tif') == 'IOC' and filled <= 0:
-            return (f"{oid}: TT cancelled the at-market order unfilled — nobody was at "
+            return (f"{oid}: Stellar cancelled the at-market order unfilled — nobody was at "
                     f"{ticket.get('price')} or better when it arrived (an IOC never waits). "
                     f"On a thin UAT market the shown price may not be tradeable; "
                     f"raise 'market limit ticks' for this contract or retry"
-                    + (f". TT: {text}" if text else ''))
-        return f"{oid} ended {status}" + (f" — TT: {text}" if text else '')
+                    + (f". Stellar: {text}" if text else ''))
+        return f"{oid} ended {status}" + (f" — Stellar: {text}" if text else '')
 
     def manual_close(self, entry_oid, price=None):
         args = {'order_id': entry_oid}
@@ -576,7 +591,7 @@ class Runner:
     def manual_cancel(self, oid):
         self.ok(self.d.command('terminal_cancel', '', {'order_id': oid}),
                 f'cancel of {oid}')
-        return self.manual_status(oid, ('CANCELED',), f'{oid} cancelled by TT')
+        return self.manual_status(oid, ('CANCELED',), f'{oid} cancelled by Stellar')
 
     # -- the Algo's path --------------------------------------------------------
 
@@ -617,10 +632,10 @@ class Runner:
         if 'UAT' not in env.upper():
             raise Failed(f'the venue is {env or "unknown"} — these tests run on UAT only')
         if (engine.get('session') or {}).get('state') != 'LOGGED_ON':
-            raise Failed('the TT sessions are not logged on (Exchanges → Connect)')
+            raise Failed('the Stellar sessions are not logged on (Exchanges → Connect)')
         c = self.contract(snap)
         if not c.get('security_id'):
-            raise Failed(f'{self.key} has no TT Security ID')
+            raise Failed(f'{self.key} has no Stellar Security ID')
         # A price that has not MOVED is a quiet UAT market, not a missing
         # one: these checks need a bid and an offer (`book()` below), not a
         # market that trades.
@@ -637,14 +652,14 @@ class Runner:
             # Just armed? The engine publishes its state a moment after it
             # answers: wait for it before calling it PAPER.
             try:
-                self.until('orders going to TT', lambda s: ((s.get('engine') or {})
+                self.until('orders going to Stellar', lambda s: ((s.get('engine') or {})
                            .get('execution') or {}).get('mode') == 'LIVE', 3)
                 engine = (self.snap().get('engine') or {})
             except Failed:
                 pass
         if need_live and (engine.get('execution') or {}).get('mode') != 'LIVE':
             raise Failed("the Algo's orders are on PAPER (filled here) — they must go "
-                         "to TT UAT for these checks: press Check Algo orders, which "
+                         "to Stellar UAT for these checks: press Check Algo orders, which "
                          "asks to send them there")
         self.book()
         return c
@@ -654,14 +669,14 @@ class Runner:
         price = (self.px(bid - self.away * tick, tick, dec) if side == 'BUY'
                  else self.px(ask + self.away * tick, tick, dec))
         oid = self.manual(side, 'LIMIT', price)
-        o = self.manual_status(oid, ('NEW',), f'{oid} acknowledged by TT')
+        o = self.manual_status(oid, ('NEW',), f'{oid} acknowledged by Stellar')
         if not o.get('venue_order_id'):
-            raise Failed('acknowledged without a TT order id (37)')
+            raise Failed('acknowledged without a Stellar order id (37)')
         self.tags(oid, t40='2', t44=self.wire(price), t54='1' if side == 'BUY' else '2',
-                  t77='O', t1=lambda v: bool(v), t48=self.sid())
+                  t77='O', tacct=lambda v: bool(v), t55=lambda v: bool(v))
         self.manual_cancel(oid)
         self.tags(oid, msg='F')
-        return f'waited at {price} (TT order {o["venue_order_id"]}), cancelled'
+        return f'waited at {price} (Stellar order {o["venue_order_id"]}), cancelled'
 
     def m8(self):
         return self.m1(side='SELL')
@@ -698,7 +713,7 @@ class Runner:
             far = (self.px(ask + self.away * tick, tick, dec) if side == 'BUY'   # a SELL far above
                    else self.px(bid - self.away * tick, tick, dec))         # a BUY far below
             cl = self.manual_close(oid, far)
-            self.manual_status(cl, ('NEW',), 'the Close @ LMT resting at TT')
+            self.manual_status(cl, ('NEW',), 'the Close @ LMT resting at Stellar')
             self.tags(cl, t77='C', t40='2', t44=self.wire(far), t54=close_side)
             self.manual_cancel(cl)
             note = f'take-profit waited at {far}, cancelled; '
@@ -751,31 +766,31 @@ class Runner:
         bid, ask, tick, dec = self.book()
         price = self.px(bid - self.away * tick, tick, dec)
         oid = self.manual('BUY', 'LIMIT', price, account='NO_SUCH_ACCOUNT_UAT')
-        o = self.manual_status(oid, ('REJECTED',), f'{oid} rejected by TT')
+        o = self.manual_status(oid, ('REJECTED',), f'{oid} rejected by Stellar')
         text = o.get('text') or ''
         if not text or 'check the log' in text.lower():
-            raise Failed(f'rejected without TT\'s own words: {text!r}')
-        return f'TT said: {text}'
+            raise Failed(f'rejected without Stellar\'s own words: {text!r}')
+        return f'Stellar said: {text}'
 
     def a1(self, side='BUY'):
         cid = self.algo_open(side, 'MARKET')
-        self.tags(cid, t11=lambda v: str(v).startswith('FT-'), t77='O', t1028='N',
-                  t54='1' if side == 'BUY' else '2', t1=lambda v: bool(v),
+        self.tags(cid, t11=lambda v: str(v).startswith('FT-'), t77='O',
+                  t54='1' if side == 'BUY' else '2', tacct=lambda v: bool(v),
                   t40=self.at_market, t59=self.at_market_tif)
         pos = self.until('the Algo position on the book', lambda s: self.algo_position(s))
         tickets = pos.get('tickets') or []
         if not tickets or any(str(t).startswith('PAPER-') for t in tickets):
-            raise Failed(f'the position carries {tickets} — not TT tickets')
+            raise Failed(f'the position carries {tickets} — not Stellar tickets')
         self.ok(self.d.command('close_now', self.key), 'CLOSE NOW')
         self.algo_flat('flat again after CLOSE NOW')
         closes = self._closes_after(cid)
         closes.sort(key=lambda m: int(str(m.get('11', '0')).rsplit('-', 1)[-1] or '0', 36))
         close = closes[-1]
         want = '2' if side == 'BUY' else '1'
-        if close.get('54') != want or 'Close P' not in close.get('58', ''):
-            raise Failed(f'the close went as 54={close.get("54")} 58={close.get("58")!r}')
+        if close.get('54') != want or 'Close P' not in close.get('ref', ''):
+            raise Failed(f'the close went as 54={close.get("54")} 452=1002 {close.get("ref")!r}')
         verb = 'bought' if side == 'BUY' else 'sold'
-        return (f'{verb} at {pos.get("avg_price")} (TT ticket {", ".join(map(str, tickets))}), '
+        return (f'{verb} at {pos.get("avg_price")} (Stellar ticket {", ".join(map(str, tickets))}), '
                 f'closed — flat')
 
     def a5(self):
@@ -820,8 +835,8 @@ class Runner:
         price = float(self.px(bid - self.away * tick, tick, dec) if side == 'BUY'
                       else self.px(ask + self.away * tick, tick, dec))
         cid = self.algo_open(side, 'LIMIT', price)
-        self.until(f'{cid} working at TT', lambda s: (self.algo_order(cid, s) or {}).get('state') == 'WORKING')
-        self.tags(cid, t40='2', t77='O', t1028='N', t44=self.wire(price),
+        self.until(f'{cid} working at Stellar', lambda s: (self.algo_order(cid, s) or {}).get('state') == 'WORKING')
+        self.tags(cid, t40='2', t77='O', t44=self.wire(price),
                   t54='1' if side == 'BUY' else '2')
         self.ok(self.d.command('cancel_all', self.key), 'cancel')
         self.algo_flat(f'{cid} cancelled, nothing open')
@@ -850,10 +865,11 @@ class Runner:
         self.ok(self.d.command('close_now', self.key), 'CLOSE ALL')
         self.algo_flat('flat after CLOSE ALL escalated the resting close')
         self.tags(pinned['clordid'], msg='F')
-        # The closes of THIS position: they name it in 58 ("Close P<id> ...").
-        ref = (first.get('58') or '').split(' ')[:2]
+        # The closes of THIS position: they name it in Stellar's ExchangeText
+        # party, 452=1002 ("Close P<id> ...").
+        ref = (first.get('ref') or '').split(' ')[:2]
         closes = [m for m in self._closes_after(cid, count=2)
-                  if (m.get('58') or '').split(' ')[:2] == ref]
+                  if (m.get('ref') or '').split(' ')[:2] == ref]
         closes.sort(key=lambda m: int(str(m.get('11', '0')).rsplit('-', 1)[-1] or '0', 36))
         last = closes[-1] if closes else {}
         crossed = last.get('40') == '1' or (last.get('40') == '2' and last.get('59') == '3')
@@ -981,7 +997,7 @@ def main(argv=None) -> int:
         s for s, _ in SCENARIOS if args.with_hits or s not in HIT_SCENARIOS]
     print(f'UAT order tests on {args.contract}: {", ".join(ids)} — qty {args.qty:g}')
     if not args.yes:
-        answer = input('These send REAL orders to TT UAT and close them again. '
+        answer = input('These send REAL orders to Stellar UAT and close them again. '
                        'Type yes to go: ')
         if answer.strip().lower() != 'yes':
             print('Nothing sent.')

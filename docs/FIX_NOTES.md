@@ -10,7 +10,36 @@ This file is the brief for finishing it. Nothing here has been guessed into
 code: a stub that says "not wired" is honest, and a stub that invents a tag is
 a bug with a long fuse.
 
-## Open questions for Orient
+## Open questions for Stellar
+
+The wire follows Stellar's two specifications (see `STELLAR_CONNECTION.md`).
+These are the points the specifications leave open; each is built the way
+that fails safe, and each is worth confirming on Stellar UAT:
+
+1. **PositionEffect (77).** Not in Stellar's spec; sent on every order
+   (77=O / C) because a close must say it is a close. If Stellar refuses the
+   tag, untick "Send 77 Open/Close" on the venue — the close still names its
+   position in the ExchangeText party (452=1002) and is capped by the book.
+2. **ClOrdID.** The spec says "a string up to 32 digits"; every example is
+   numeric. Ours are alphanumeric (`FT-…`, `FTM-…`, at most 20 characters).
+3. **Logon credentials.** The spec's Logon has 98 / 108 only. A password in
+   `.env` is sent as 553 / 554; none sends a bare Logon.
+4. **Sequence reset schedule.** The Order Router keeps its numbers so Stellar
+   resends what was missed. When does Stellar reset its side (daily,
+   weekly)? Then use Reset sequence numbers, or the venue's reset-on-logon.
+5. **Unsubscribe.** The spec lists SubscriptionRequestType 263=1 only; the
+   depth toggle and a Market Data gap send 263=2 then 263=1.
+6. **Security List Request.** Sent with Symbol (55), CFI (461) and the
+   exchange (207, as in the spec's examples). An inter-commodity strategy is
+   searched for under each leg product.
+7. **Trade CumQty / OrdStatus.** The examples' trades say 14=0 (and a
+   strategy fill 39=0 with 151=0): the desk sums LastQty itself. Confirm a
+   partial fill reports LeavesQty (151) reliably.
+8. **CME SenderSubID (50).** The spec says Stellar takes it from
+   ExchangeClearingAccount1 (452=1000), else the user name: set the clearing
+   account on the venue.
+
+## Open questions for Orient (from the TT desk)
 
 These change what the code sends, so they are worth asking before writing it.
 
@@ -57,7 +86,7 @@ These change what the code sends, so they are worth asking before writing it.
   "none" and not "flat". `FakeGateway.readable = False` is the switch the
   tests use to produce that state.
 - `send()` returns a `ClOrdID` prefixed `FT-`. Anything at the venue without
-  that prefix belongs to somebody else — a hand order in TT — and is never
+  that prefix belongs to somebody else — a hand order in Stellar — and is never
   cancelled, amended or counted as ours.
 - **Amend is cancel-replace**, keeping the order id and its lineage. Never
   cancel-then-new: it gives up the queue and opens a window in which the order

@@ -1,4 +1,4 @@
-"""Explicit operator smoke check: exercises the running TT UAT dashboard.
+"""Explicit operator smoke check: exercises the running Stellar UAT dashboard.
 
 Not collected by pytest. Run manually only when a UAT disconnect/reconnect is
 intended. Leaves the sessions connected and writes screenshots to artifacts/.
@@ -44,7 +44,7 @@ def main():
         expect(page.locator('#overall-state')).to_have_text('Connected', timeout=5000)
         browser.close()
     assert not errors, errors
-    print('PASS: live Disconnect, Connect, Reconnect; both TT sessions connected; mobile layout; stale-engine status; no JavaScript errors.')
+    print('PASS: live Disconnect, Connect, Reconnect; both Stellar sessions connected; mobile layout; stale-engine status; no JavaScript errors.')
 
 
 if __name__ == '__main__':

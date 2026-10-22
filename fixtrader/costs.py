@@ -58,7 +58,7 @@ def round_trip_money(qty: float, tick_value: Optional[float],
 def configured_margin(settings: Dict[str, Any], qty: float) -> Optional[float]:
     """The margin `qty` contracts tie up, as the OPERATOR entered it.
 
-    TT does not report margin, so the profit target's base is a number the
+    Stellar does not report margin, so the profit target's base is a number the
     trader types per contract. None where it has not been entered — 0 is not
     a margin, it is a blank that would make every target read "leave at
     break-even".

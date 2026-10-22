@@ -243,7 +243,7 @@ def test_a_security_definition_is_absent_or_complete_never_zeroed(h):
 
 def test_every_order_we_send_is_stamped_as_ours(h):
     """Anything at the venue without this prefix belongs to somebody else —
-    a hand order in TT — and is never cancelled, amended or counted."""
+    a hand order in Stellar — and is never cancelled, amended or counted."""
     clordid = h.gateway.send(h.market(qty=1))
     assert clordid.startswith(CLORDID_PREFIX)
     h.drain_until('FILL')

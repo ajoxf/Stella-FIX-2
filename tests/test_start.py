@@ -83,7 +83,7 @@ def test_the_windows_launcher_does_not_die_on_the_first_log_line():
 
 
 def test_stopping_lets_the_engine_log_out_before_any_force():
-    """TerminateProcess on Windows ran no handler, so TT kept the sessions
+    """TerminateProcess on Windows ran no handler, so Stellar kept the sessions
     and refused the next start: "Session is already connected on host". A
     child that exits on its own inside the grace period is never forced."""
     import subprocess as sp

@@ -75,7 +75,10 @@ def create_app(config_path: str = "config.json",
 
     @app.get('/')
     def index():
-        if any(v.host and v.fix_version == 'FIX.4.2' for v in load_config().venues.values()):
+        # A Stellar venue lands on its connection dashboard: the sessions are
+        # brought up there before anything else on the desk can work.
+        if any(v.host and (v.target_comp_id or '').upper() == 'STELLAR'
+               for v in load_config().venues.values()):
             return render_template('connection.html', asset_version=ASSET_VERSION)
         return render_template('index.html', asset_version=ASSET_VERSION)
 
@@ -95,7 +98,7 @@ def create_app(config_path: str = "config.json",
     def account_page():
         return render_template('account.html', asset_version=ASSET_VERSION)
 
-    # -- order tests: every order path, run on TT UAT from the screen --------
+    # -- order tests: every order path, run on Stellar UAT from the screen --------
 
     from . import uat as uat_mod
     order_tests = uat_mod.OrderTestRun(str(status_path) + '.order-tests.json')
@@ -144,7 +147,7 @@ def create_app(config_path: str = "config.json",
         if env.upper() != 'UAT':
             return jsonify({'ok': False, 'error': (
                 f'the venue is {env or "not known"} — order tests send real '
-                f'orders and run on TT UAT only. On a live venue, test by hand '
+                f'orders and run on Stellar UAT only. On a live venue, test by hand '
                 f'with the steps shown, at the size you mean.')}), 409
         if data.get('confirm') is not True:
             return jsonify({'ok': False, 'error': 'not confirmed'}), 400
@@ -238,9 +241,9 @@ def create_app(config_path: str = "config.json",
             if any('sequence mismatch' in str(session.get('error', '')).lower()
                    for session in sessions):
                 return jsonify({'ok': False, 'error':
-                    'TT FIX sequence mismatch. Connect/reconnect is blocked until TT '
-                    'confirms the sequence reset or recovery procedure and working '
-                    'orders and fills have been reconciled.'}), 409
+                    'Stellar FIX sequence mismatch. Connect/reconnect is blocked until '
+                    'Stellar confirms its side of the sequence numbers and working '
+                    'orders and fills have been reconciled — then Reset sequence numbers.'}), 409
         command_id = bridge.submit(action, data.get('contract', ''),
                                    data.get('args') or {})
         return jsonify({'ok': True, 'id': command_id})
@@ -303,7 +306,7 @@ def create_app(config_path: str = "config.json",
         body = slippage.report(positions, config.contracts, budgets)
         body.update(period=period, mode=mode, contract=key)
         # Manual tickets, from the engine's snapshot: each ticket's fills
-        # against the touch when it was SENT. Live TT orders only, so they
+        # against the touch when it was SENT. Live Stellar orders only, so they
         # are shown under live, never blended into a simulated figure.
         manual = (((read_status().get('engine') or {}).get('manual_terminal')
                    or {}).get('slippage') or {})
@@ -347,7 +350,7 @@ def create_app(config_path: str = "config.json",
             })
         orders = db.orders(limit=2000)
         by_id = {o['clordid']: o for o in orders}
-        tt = db.tt_fills(limit=limit)
+        tt = db.venue_fills(limit=limit)
         _price_fills(config, db, tt, _manual_book())
         timing: Dict[str, List[float]] = {}
         first_fill = set()
@@ -366,7 +369,7 @@ def create_app(config_path: str = "config.json",
                        'worst': max(v)} for k, v in timing.items()}
         return jsonify({'ok': True, 'orders': orders[:limit],
                         'fills': db.fills(limit=limit), 'closed': closed,
-                        'tt_fills': tt, 'timings': timings,
+                        'venue_fills': tt, 'timings': timings,
                         'account': next((v.account for v in config.venues.values()
                                          if getattr(v, 'account', '')), '')})
 
@@ -376,17 +379,17 @@ def create_app(config_path: str = "config.json",
         engine = read_status().get('engine') or {}
         return engine.get('manual_terminal') or {}
 
-    @app.get('/api/tt_fills.csv')
+    @app.get('/api/venue_fills.csv')
     def api_tt_fills_csv():
-        """The TT fills tape as TT sent it, newest first — and beside TT's
+        """The Stellar fills tape as Stellar sent it, newest first — and beside Stellar's
         own fields, the P&L this program puts on a closing fill of ours (the
         same figure as the Fills tab), empty where it cannot be priced."""
         from .database import Database
         config = load_config()
         db = _db(config)
-        rows = db.tt_fills(limit=100000)
+        rows = db.venue_fills(limit=100000)
         _price_fills(config, db, rows, _manual_book())
-        return _csv('tt_fills.csv', list(Database.TT_FILL_COLUMNS) + ['pnl'], rows)
+        return _csv('venue_fills.csv', list(Database.VENUE_FILL_COLUMNS) + ['pnl'], rows)
 
     @app.get('/api/slippage')
     def api_slippage():
@@ -666,9 +669,9 @@ def create_app(config_path: str = "config.json",
         def slug(text):
             return re.sub(r'[^a-z0-9]+', '_', str(text).lower()).strip('_')
         key = data.get('key') or slug(symbol)
-        # A TT product symbol is shared by every contract in it — `CL` is the
+        # A Stellar product symbol is shared by every contract in it — `CL` is the
         # December future AND every CL calendar AND every CL|BZ spread. The
-        # TT Security ID is what tells them apart, so a DIFFERENT instrument
+        # Stellar Security ID is what tells them apart, so a DIFFERENT instrument
         # under a taken key gets its own key; the SAME one is still refused.
         security_id = str(data.get('security_id') or '').strip()
         taken = config.contracts.get(key)
@@ -890,7 +893,7 @@ def create_app(config_path: str = "config.json",
 
         if venue.host:
             return jsonify({'ok': False, 'simulated': False,
-                            'error': 'Security-definition translation is not implemented by the connection-only TT adapter.'})
+                            'error': 'Security-definition translation is not implemented by the Stellar adapter (instrument definitions come from the Stellar Security List on the Instruments page).'})
         gateway, _, simulated = _gateway_for(config, venue)
         try:
             gateway.start()
@@ -924,11 +927,11 @@ def create_app(config_path: str = "config.json",
 
 
 def _price_fills(config, db, tt, manual):
-    """Name each TT fill and put a P&L on each CLOSING fill of ours, in
+    """Name each Stellar fill and put a P&L on each CLOSING fill of ours, in
     place: the Algo's against the position it closed, a manual ticket's
     against the ticket it closed (`close_of`). (fill - entry) x side, in
     money through `sizing.to_money`. The contract's figures are the desk
-    contract's — what the trader set — then the watchlist's as TT defines
+    contract's — what the trader set — then the watchlist's as Stellar defines
     them now, the ticket's own copy last (it may predate a units fix). A
     P&L that cannot be priced is None, never 0 and never a failed page."""
     orders = {o['clordid']: o for o in db.orders(limit=100000)}
@@ -1024,8 +1027,9 @@ def _csv(filename, columns, rows):
 #: own and never lands here; anything not on this list is ignored rather than
 #: quietly set.
 VENUE_FIELDS = (
-    'environment', 'broker', 'host', 'port', 'md_host', 'md_port',
-    'recovery_host', 'recovery_port',
+    'environment', 'broker', 'host', 'port', 'md_host', 'md_port', 'md_sender_comp_id',
+    'clearing_account', 'send_position_effect', 'mifid_capacity', 'mifid_dea',
+    'mifid_client_id', 'mifid_execution_decision', 'mifid_investment_decision',
     'sender_comp_id', 'target_comp_id', 'sender_sub_id', 'target_sub_id',
     'on_behalf_of_comp_id', 'fix_version', 'username', 'account',
     'heartbeat_sec', 'reset_seq_on_logon', 'use_tls', 'data_dictionary',

@@ -16,7 +16,7 @@ def test_close_review_opposite_side_close_flag_and_duplicate_reservation(termina
     assert first['ticket']['side']=='SELL'
     assert first['ticket']['quantity']=='2.0'
     fields=dict(first['fields'])
-    assert fields['40']=='1' and fields['77']=='C' and fields['48']=='101'
+    assert fields['40']=='1' and fields['77']=='C' and fields['55']=='ES' and fields['200']=='202612'
     assert '44' not in fields
     close=terminal.submit({'token':first['token'],'confirmed':True})['order_id']
     terminal.submit({'token':first['token'],'confirmed':True})
@@ -41,7 +41,10 @@ def test_rejected_close_releases_reservation_unknown_does_not(terminal):
 def test_partial_close_then_cancel_only_remaining_fill_can_close(terminal):
     oid=filled(terminal)
     p=terminal.preview_close({'order_id':oid});cid=terminal.submit({'token':p['token'],'confirmed':True})['order_id']
-    report(terminal,{'35':'8','11':cid,'39':'4','150':'4','14':'1','151':'0'})
+    # Stellar: the trade (150=F) on its own, then the cancel of the rest —
+    # whose CumQty is 0, never read as "nothing filled".
+    report(terminal,{'35':'8','11':cid,'39':'1','150':'F','17':'CLOSE-PART','14':'0','151':'1','32':'1','31':'-0.5'})
+    report(terminal,{'35':'8','11':cid,'39':'4','150':'4','14':'0','151':'0'})
     assert terminal.preview_close({'order_id':oid})['ticket']['quantity']=='1.0'
 
 

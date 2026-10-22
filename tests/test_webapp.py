@@ -262,8 +262,8 @@ def test_two_contracts_cannot_share_a_key(client):
     assert res.status_code == 409
 
 
-def test_two_tt_instruments_under_one_product_symbol_get_their_own_keys(client):
-    """`CL` is the December future AND every CL spread. The TT Security ID
+def test_two_stellar_instruments_under_one_product_symbol_get_their_own_keys(client):
+    """`CL` is the December future AND every CL spread. The Stellar Security ID
     tells them apart, so the second is not refused as a duplicate."""
     c, _ = client
     fut = c.post('/api/contracts', json={
@@ -277,7 +277,7 @@ def test_two_tt_instruments_under_one_product_symbol_get_their_own_keys(client):
     assert spread['key'] == '1xcl_dec26_1xcl_jan27'
 
 
-def test_the_same_tt_instrument_twice_is_still_a_duplicate(client):
+def test_the_same_stellar_instrument_twice_is_still_a_duplicate(client):
     """The control: one Security ID is one contract, whatever it is named."""
     c, _ = client
     body = {'symbol': 'CL', 'venue': 'orient', 'security_id': '543741535855301483'}

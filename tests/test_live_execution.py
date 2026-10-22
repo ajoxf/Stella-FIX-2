@@ -15,7 +15,7 @@ from tests.test_engine_signal import build
 class Venue(FakeGateway):
     """The simulator dressed as a live venue: it has a venue, can be told
     its positions are unreadable, and keeps what it was sent."""
-    venue = SimpleNamespace(name='TT-UAT', environment='UAT', account='ACC1')
+    venue = SimpleNamespace(name='STELLAR-UAT', environment='UAT', account='ACC1')
     readable = True
     sent_ids = None
 
@@ -25,7 +25,7 @@ class Venue(FakeGateway):
     def positions_status(self):
         return ({'status': 'complete', 'why': None} if self.readable else
                 {'status': 'unavailable',
-                 'why': 'TT rejected the positions request: Unsupported'})
+                 'why': 'Stellar rejected the positions request: Unsupported'})
 
     def adopt(self, row):
         self.adopted = getattr(self, 'adopted', []) + [row['clordid']]

@@ -1,4 +1,4 @@
-"""Durable, redacted audit trail for TT FIX messages."""
+"""Durable, redacted audit trail for Stellar FIX messages."""
 import json
 import os
 import threading

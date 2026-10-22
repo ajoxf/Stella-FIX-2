@@ -63,10 +63,11 @@ def test_readding_instrument_preserves_saved_depth(terminal):
 
 def test_last_traded_is_requested_and_updates_last_without_changing_book(terminal):
     fields=terminal.gateway._sessions['Market Data'].sent[-1][1]
-    assert ('267','4') in fields and ('269','x') in fields
-    update(terminal,'268=3|269=0|270=10|271=2|269=1|270=10.25|271=3|269=x|270=10.1|271=1|','W')
+    # Stellar's entry types: 0 bid, 1 offer, 2 trade.
+    assert ('267','3') in fields and ('269','2') in fields
+    update(terminal,'268=3|269=0|270=10|271=2|269=1|270=10.25|271=3|269=2|270=10.1|271=1|','W')
     assert terminal.books['101']['last']==10.1
-    update(terminal,'268=1|279=1|269=x|270=10.2|271=2|')
+    update(terminal,'268=1|279=1|269=2|270=10.2|271=2|')
     assert terminal.books['101']['last']==10.2
     assert terminal.books['101']['bid']==10
     assert terminal.books['101']['ask']==10.25

@@ -2,14 +2,14 @@
 
 ## What is live today
 
-The app can connect its TT FIX sessions and consume real market data. The
+The app can connect its Stellar FIX sessions and consume real market data. The
 algorithm's statistics, signals, and risk checks are present, and its orders
-go to TT over Order Routing (`AlgoOrderRouter`) — **TT UAT only**. Every
+go to Stellar over Order Routing (`AlgoOrderRouter`) — **Stellar UAT only**. Every
 restart comes back on PAPER; LIVE is armed from the Algo desk taskbar and
-confirmed every time. TT is asked for the account's positions at each logon;
-where it does not answer, arming LIVE is the operator's confirmation that the
-book's own fills are the record. The adapter refuses anything but UAT FIX
-4.2: do not point this build at a production account.
+confirmed every time. Stellar's Order Router provides no positions, so arming
+LIVE is the operator's confirmation that the book's own fills are the record.
+The adapter refuses anything but a UAT venue speaking FIX 4.4: do not point
+this build at a production account.
 
 The launcher now selects FIX mode by default. `--simulated` is an explicit
 development option; it must not be used to validate live connectivity or live

@@ -1,10 +1,10 @@
 """Why a contract has no prices — said in words a trader can act on.
 
 "The data feed is not coming for every contract" has three different
-causes with three different fixes: TT REFUSED the price request (market-
-data permission on the account — Orient / TT), TT answered but NOBODY is
-quoting it (a quiet UAT market), or TT never ANSWERED (a Security ID it
-does not know). The screen must say which."""
+causes with three different fixes: Stellar REFUSED the price request
+(market-data permission on the account), Stellar answered but NOBODY is
+quoting it (a quiet UAT market), or Stellar never ANSWERED (a Security ID
+it does not know). The screen must say which."""
 import time
 
 from tests.test_price_units import terminal  # noqa: F401  (the fixture)
@@ -17,20 +17,20 @@ def status(terminal, key='CL1'):
 def test_prices_arriving_is_live(terminal):
     request = terminal.subscriptions['CL1']
     terminal.on_message('Market Data', {'35': 'W'},
-                        f'35=W\x01262={request}\x01268=2\x01269=0\x01270=9050\x01271=3\x01'
-                        f'269=1\x01270=9052\x01271=4\x01')
+                        f'35=W\x01262={request}\x01268=2\x01269=0\x01270=90.50\x01271=3\x01'
+                        f'269=1\x01270=90.52\x01271=4\x01')
     assert status(terminal)['state'] == 'LIVE'
 
 
-def test_a_refusal_is_said_with_tts_reason_and_who_to_ask(terminal):
+def test_a_refusal_is_said_with_stellars_reason_and_who_to_ask(terminal):
     request = terminal.subscriptions['CL1']
     terminal.on_message('Market Data', {'35': 'Y', '262': request, '281': '3',
                                         '58': 'Not entitled'}, '')
     s = status(terminal)
     assert s['state'] == 'REFUSED'
     assert 'no market-data permission' in s['text'] and 'Not entitled' in s['text']
-    assert 'Orient' in s['text']
-    other = status(terminal, 'GC1')                 # the control: GC untouched
+    assert 'ask Stellar' in s['text']
+    other = status(terminal, 'GCZ6')                 # the control: GC untouched
     assert other['state'] != 'REFUSED'
 
 
@@ -60,14 +60,14 @@ def test_the_watchlist_carries_it(terminal):
     assert rows['CL1']['feed_status']['state'] in ('WAITING', 'NO_ANSWER')
 
 
-def test_a_contract_added_before_tt_is_ready_waits_and_is_subscribed_after(tmp_path):
-    """Found by a test under load: subscribing a contract after the Market
-    Data logon but BEFORE TT's "Recovery is complete" raised, instead of
-    waiting — the terminal's poll subscribes it once the session is ready."""
+def test_a_contract_added_before_the_session_is_ready_waits_and_is_subscribed_after(tmp_path):
+    """Subscribing a contract after the Market Data logon but before the
+    session is ready raised, instead of waiting — the terminal's poll
+    subscribes it once the session is ready."""
     from types import SimpleNamespace
     from fixtrader.config import VenueConfig
     from fixtrader.gateway import FixGateway
-    gw = FixGateway(VenueConfig('TT', environment='UAT'), manual_path=str(tmp_path / 'm.db'))
+    gw = FixGateway(VenueConfig('STELLAR', environment='UAT'), manual_path=str(tmp_path / 'm.db'))
     sent = []
     gw.terminal._subscribe = lambda key, action='1': sent.append(key)
     ready = {'now': False}
@@ -75,7 +75,7 @@ def test_a_contract_added_before_tt_is_ready_waits_and_is_subscribed_after(tmp_p
         state=SimpleNamespace(status='CONNECTED'), is_running=lambda: True,
         ready=lambda: ready['now'], cfg={})
     contract = SimpleNamespace(key='gc', name='GC', symbol='GC', security_id='GC1',
-                               security_exchange='CME', tick_size=0.1, tick_value=10.0)
+                               security_exchange='XCME', tick_size=0.1, tick_value=10.0)
     gw.subscribe(contract)                    # not ready: no error, nothing sent
     assert sent == []
     ready['now'] = True

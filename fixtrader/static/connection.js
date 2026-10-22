@@ -22,6 +22,8 @@
     $('connect').disabled = !ready || sequenceMismatch || ['LOGGED_ON','CONNECTING'].includes(connection?.state);
     $('reconnect').disabled = !ready || sequenceMismatch || connection?.state === 'CONNECTING';
     $('disconnect').disabled = !ready || connection?.state === 'DOWN';
+    // Only with the Order Router down: the numbers it starts from next.
+    $('reset_sequences').disabled = !ready || !['DOWN', 'ERROR'].includes(connection?.state);
   }
 
   function render(snapshot) {
@@ -38,7 +40,7 @@
       $('action-result').textContent = 'Both FIX sessions are connected.';
     }
     $('overall-state').textContent = !engine.alive ? 'Engine unavailable' : connection ? displayState(state) : 'No FIX session configured';
-    $('overall-detail').textContent = !engine.alive ? (engine.text || 'Start FIX-Trader to manage the connection.') : connection?.reconnect_in ? `Waiting ${connection.reconnect_in}s before reconnecting to TT…` : connection?.text || 'Configure a TT UAT venue and start the FIX engine.';
+    $('overall-detail').textContent = !engine.alive ? (engine.text || 'Start FIX-Trader to manage the connection.') : connection?.reconnect_in ? `Waiting ${connection.reconnect_in}s before reconnecting to Stellar…` : connection?.text || 'Configure a Stellar venue and start the FIX engine.';
     document.querySelector('.summary').className = 'summary ' + stateClass(state);
     $('venue').textContent = connection?.venue || 'No venue';
     const cards = document.createDocumentFragment();
@@ -107,11 +109,22 @@
       }
       if (!result || result.pending) throw new Error('The engine has not answered. Check its status before retrying.');
       if (!result.ok) throw new Error(result.error || result.rows?.[0]?.detail || 'Request failed.');
-      $('action-result').textContent = action === 'disconnect' ? 'FIX sessions disconnected.' : action === 'reconnect' ? 'Reconnect scheduled. The sessions will reconnect after a 10-second pause.' : 'Connection requested. Waiting for TT to acknowledge logon.';
+      $('action-result').textContent = action === 'disconnect' ? 'FIX sessions disconnected.' : action === 'reconnect' ? 'Reconnect scheduled. The sessions will reconnect after a 10-second pause.' : action === 'reset_sequences' ? 'Order Router sequence numbers reset: the next logon starts from 1.' : 'Connection requested. Waiting for Stellar to acknowledge logon.';
       render(await request('/api/snapshot'));
     } catch (error) { $('action-result').textContent = error.message; $('action-result').className = 'feedback error'; }
     finally {busy = false; controls();}
   }
   for (const action of ['connect','disconnect','reconnect']) $(action).addEventListener('click', () => command(action));
+  // Resetting the numbers is right ONLY when Stellar has reset its side: a
+  // second press within five seconds confirms it — no native confirm().
+  let resetArmed = 0;
+  $('reset_sequences').addEventListener('click', () => {
+    if (Date.now() - resetArmed < 5000) { resetArmed = 0; $('reset_sequences').textContent = 'Reset sequence numbers'; command('reset_sequences'); return; }
+    resetArmed = Date.now();
+    $('reset_sequences').textContent = 'Press again to reset';
+    $('action-result').className = 'feedback';
+    $('action-result').textContent = 'Only when Stellar confirms it has reset its side of the Order Router: the next logon then starts from 1. Press again within 5 seconds.';
+    setTimeout(() => { if (resetArmed) { resetArmed = 0; $('reset_sequences').textContent = 'Reset sequence numbers'; } }, 5000);
+  });
   poll();
 })();

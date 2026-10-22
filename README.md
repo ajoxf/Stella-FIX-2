@@ -1,12 +1,23 @@
-# FIX-Trader
+# FIX-Trader — Stellar
+
+The FIX-Trader desk (`ajoxf/FIX-Trader`), connected to **Stellar FIX**
+instead of Stellar FIX: the same Algo desk, ladders, Algo windows, Trading
+Monitor, Instruments & orders, Analysis and order tests — only the venue
+seam (`fixtrader/gateway.py`, `fixtrader/manual_terminal.py`,
+`fixtrader/stellar_exec.py`) speaks Stellar's dialect. See
+[Stellar connection](docs/STELLAR_CONNECTION.md) for how each rule of the
+two Stellar specifications is met.
 
 ## Live FIX market data into the algorithm
 
-The TT Market Data FIX session and `ManualTerminal` parser supply both the
+Stellar's Market Data session and the `ManualTerminal` parser supply both the
 instrument screen and the algorithm. Configure each algorithm contract with
-its exact TT `security_id` and `symbol` in the selected config file. Set
-`security_exchange` when known. The security ID is the routing key; symbols
-are display metadata.
+its exact Stellar `security_id` (tag 48, e.g. `F.STS_OSE 10-year JGB.DEC17`),
+its `symbol` and `security_exchange` (the MIC or Stellar exchange code, e.g.
+`XCME`, `XOSE`) in the selected config file. Prices are requested by the
+Security ID; an ORDER names the instrument as Stellar's Security List does
+(symbol, CFI code, maturity, exchange — a strategy by its legs), which the
+desk fetches from Stellar for every configured contract.
 The gateway normalizes each parsed book into `MarketDataEvent` and publishes it
 to a bounded, thread-safe `AlgoDataFeed`. The engine drains the feed on its own
 loop, samples the bid/ask midpoint only for new valid updates, and continues to
@@ -15,11 +26,13 @@ as event metadata and never replace the midpoint used by the strategy.
 Bursts coalesce by contract; a disconnected Market Data session clears its
 books and pending events. The feed reports its coalesced count as `dropped`.
 
-Use `run_fix.ps1` or `run_fix.bat` with your existing UAT configuration and
-credentials in `.env`. The FIX audit records incoming messages, while DEBUG
+Copy `config.stellar-uat.example.json` to `config.stellar-uat.json`, fill in
+the venue on the Exchanges page (hosts, ports, CompIDs, Stellar User Name and
+Account) and run `run_fix.ps1` or `run_fix.bat`; a password, if Stellar issued
+one, goes in `.env`. The FIX audit records incoming messages, while DEBUG
 logging for `fixtrader.gateway` and `fixtrader.engine` records normalized
-events and strategy consumption. The Algo's orders go to TT over the Order
-Routing session (TT UAT, FIX 4.2) — but only once a person arms **LIVE**.
+events and strategy consumption. The Algo's orders go to Stellar over the
+Order Router (FIX 4.4) — but only once a person arms **LIVE**.
 
 Each contract's **Algo button** (on its ladder and its Algo window) is Off,
 Signals or Trades; on a live venue every armed Algo comes back in Signals
@@ -27,37 +40,28 @@ after a restart. **Master** on the taskbar stands every Algo down at
 once. **Execution** is PAPER or LIVE, on the taskbar — where a trading Algo's
 orders go. Every restart comes back on
 PAPER: fills simulated at the live bid/offer, nothing sent. LIVE sends the
-Algo's orders to TT and is armed by hand, confirmed every time. TT is asked
-for the account's positions at each logon; if it does not answer, arming
-LIVE is your confirmation that this book's own fills are the record, and a
-banner says so for as long as it holds.
+Algo's orders to Stellar and is armed by hand, confirmed every time. Stellar's
+Order Router provides no positions: arming LIVE is your confirmation that this
+book's own fills are the record, and a banner says so for as long as it holds.
 
-For this UAT setup, TT's security-definition search returned a current ES Dec
-2026 instrument; `config.tt-uat.json` maps it as `esz6` with automatic trading
-off. The expired `esu6` contract is disabled. Raw FIX price and raw FIX tick
-size are kept together in the algorithm model.
-
-**Instruments & manual UAT orders:** open `/instruments` to search TT futures,
-options and listed spreads, save a watchlist, receive bid/ask prices, and
-review/send manual orders with cancel/replace and execution reports.
-See [symbol and order instructions](docs/INSTRUMENTS_AND_ORDERS.md).
-This manual workflow was added explicitly at the operator's request. Each
-contract has ONE Algo switch, on its ladder and its Algo window — **Off**,
+**Instruments & manual UAT orders:** open `/instruments` to search Stellar's
+futures, options and listed strategies (Security List), save a watchlist,
+receive bid/ask prices, and review/send manual orders with cancel/replace and
+execution reports. See [symbol and order instructions](docs/INSTRUMENTS_AND_ORDERS.md).
+Each contract has ONE Algo switch, on its ladder and its Algo window — **Off**,
 **Signals** (the Algo alerts its entries and watches your position's TP/SL;
 you trade on the ladder) or **Trades** (PAPER or LIVE) — so hand trades and
 algo trades are never on the same contract: while its Algo trades, hand orders
 on it are refused, and the Algo never trades a contract a hand is holding.
-Closing and cancelling always work. Algorithmic execution and complete account-position
-recovery remain unfinished.
+Closing and cancelling always work.
 
-**Local TT UAT connection:** the native connection code from
-`backup_v1fixapp.py` is now integrated. Run `run_fix.ps1` for the configured
-Order Routing and Market Data sessions. See [TT connection](docs/TT_CONNECTION.md)
-for setup and scope. This adds session connectivity; the execution and market
-data translation work described below remains unfinished.
+**What the Order Router missed** while the program was down is resent by
+Stellar (the session keeps its sequence numbers), and after each logon every
+order of ours still working is asked about — see
+[FIX recovery](docs/FIX_RECOVERY.md).
 
 A **statistical-arbitrage monitor and execution terminal for exchange-listed
-spread contracts**, traded over **FIX** through Orient Futures.
+spread contracts**, traded over **FIX** through Stellar.
 
 One screen, many contracts. Each contract gets a small window carrying the
 numbers that decide the trade — rolling mean, standard deviation, the z of the
@@ -98,13 +102,13 @@ so there are no legs:
 - **Modes**, per contract on its Algo button: OFF (traded by hand), SIGNALS
   (alerts on entries; your position watched with its TP/SL; you trade), and
   Trades — PAPER (filled at the live bid/offer, nothing
-  sent — every restart comes back here) or LIVE (sent to TT; armed by hand
+  sent — every restart comes back here) or LIVE (sent to Stellar; armed by hand
   and confirmed).
 
 The top bar puts trading first — **Algo desk**, **Instruments & orders**,
 **Account** — then the connection pages. **Account** is the Trading
-Monitor for FIX: positions with TT's view beside them, working orders, the
-TT fills tape (every fill TT reported, in its own tags), closed trades,
+Monitor for FIX: positions, working orders, the
+Stellar fills tape (every trade Stellar reported, in its own tags), closed trades,
 slippage and the reconciler.
 
 Each contract on the Algo desk has a **ladder** — the MT5 desk's ladder on
@@ -115,7 +119,7 @@ its settings over the recording. Both minimise to the taskbar.
 
 ## Why it is simpler than a two-leg spread system
 
-Orient lists the spread itself as a single tradeable contract. There is no leg
+Stellar lists the spread itself as a single tradeable strategy. There is no leg
 A and leg B, no hedge ratio, no matched clip, no naked-leg window and no
 orphan-leg recovery — a spread is bought and sold like an outright.
 
@@ -127,7 +131,7 @@ order-execution work into six packages, one PR each.
 
 The handover is a test file. `tests/test_gateway_contract.py` runs against the
 simulator the whole system is built on, and it is the same suite a real
-`FixGateway` has to pass against Orient's UAT. A gateway that passes it drops
+`FixGateway` has to pass against Stellar's UAT. A gateway that passes it drops
 in with no change above `fixtrader/gateway.py`.
 
 ## The build specification
@@ -140,8 +144,7 @@ Read it before writing any code.
 `gateway.py` is the only module that speaks FIX: market data, manual
 tickets and the Algo's orders (`AlgoOrderRouter`) all go through it.
 `FakeGateway` drives the tests and the pre-credentials desk behind the same
-interface. See `docs/FIX_NOTES.md` for the message set and the open questions
-for Orient.
+interface. See `docs/STELLAR_CONNECTION.md` for the Stellar message set.
 
 ## Running it — one file
 
@@ -256,5 +259,5 @@ levels most, because those are the ones still open.
 
 The main terminal runs end to end against the simulator: contracts warm,
 arm, enter, manage their positions and close on their targets, with the
-notifications, the guards and restart recovery working. On TT UAT the Algo
+notifications, the guards and restart recovery working. On Stellar UAT the Algo
 trades PAPER until LIVE is armed — see `docs/FIX_NOTES.md`.

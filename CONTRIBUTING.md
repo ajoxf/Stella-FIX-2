@@ -114,7 +114,7 @@ day.
 - **A refusal carries the venue's own words** — tag 58 verbatim, never "check
   the log".
 - **Cancel only our own orders**, scoped to the `FT-` `ClOrdID` prefix.
-  Anything else at the venue is somebody's hand order in TT.
+  Anything else at the venue is somebody's hand order in Stellar.
 - **Every test that asserts something is withheld needs a control** that turns
   the guard off and asserts the opposite.
 - **Do not guess a tag.** A stub that says "not wired" is honest; a stub that

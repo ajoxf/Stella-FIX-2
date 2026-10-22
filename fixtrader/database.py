@@ -79,23 +79,24 @@ CREATE TABLE IF NOT EXISTS samples (
 );
 CREATE INDEX IF NOT EXISTS ix_samples_key ON samples(contract_key, ts);
 
--- Every fill TT reported on the Order Routing session, ours or not, in
--- TT's own fields. Display only: the book is built from `fills`.
-CREATE TABLE IF NOT EXISTS tt_fills (
+-- Every fill Stellar reported on the Order Router session, ours or not, in
+-- Stellar's own fields. Display only: the book is built from `fills`.
+CREATE TABLE IF NOT EXISTS venue_fills (
     exec_id TEXT PRIMARY KEY, clordid TEXT, orig_clordid TEXT, order_id TEXT,
-    tt_time TEXT, account TEXT, security_id TEXT, symbol TEXT,
+    trade_id TEXT,
+    venue_time TEXT, account TEXT, security_id TEXT, symbol TEXT,
     contract_key TEXT, side TEXT, open_close TEXT, qty REAL, price REAL,
     cum_qty REAL, leaves_qty REAL, exec_type TEXT, ord_status TEXT,
     text TEXT, ours TEXT, received TEXT
 );
-CREATE INDEX IF NOT EXISTS ix_tt_fills_received ON tt_fills(received);
+CREATE INDEX IF NOT EXISTS ix_venue_fills_received ON venue_fills(received);
 
 CREATE TABLE IF NOT EXISTS algo_warmup (
     contract_key TEXT PRIMARY KEY, live_sec REAL NOT NULL, at REAL NOT NULL
 );
 
--- The TT display factor (9787) the recorded prices of a contract are in.
--- No row: recorded before prices were converted, i.e. in TT's FIX units.
+-- The price factor the recorded prices of a contract are in (1 on Stellar,
+-- whose prices are trader prices). No row: recorded before it was kept.
 CREATE TABLE IF NOT EXISTS price_units (
     contract_key TEXT PRIMARY KEY, factor REAL NOT NULL, at TEXT
 );
@@ -313,8 +314,8 @@ class Database:
             conn.commit()
 
     def has_fill(self, venue: str, exec_id: str) -> bool:
-        """Is this fill already in the book? A report TT replays (FIX
-        Recovery, a resend) must never be applied to a position twice."""
+        """Is this fill already in the book? A report Stellar resends (a
+        ResendRequest, an order status answer) must never be applied to a position twice."""
         with self._connect() as conn:
             return conn.execute("SELECT 1 FROM fills WHERE venue = ? AND exec_id = ?",
                                 (venue, exec_id)).fetchone() is not None
@@ -331,28 +332,28 @@ class Database:
         with self._connect() as conn:
             return [dict(r) for r in conn.execute(sql, args).fetchall()]
 
-    TT_FILL_COLUMNS = ('exec_id', 'clordid', 'orig_clordid', 'order_id',
-                       'tt_time', 'account', 'security_id', 'symbol',
+    VENUE_FILL_COLUMNS = ('exec_id', 'clordid', 'orig_clordid', 'order_id',
+                       'trade_id', 'venue_time', 'account', 'security_id', 'symbol',
                        'contract_key', 'side', 'open_close', 'qty', 'price',
                        'cum_qty', 'leaves_qty', 'exec_type', 'ord_status',
                        'text', 'ours', 'received')
 
-    def save_tt_fills(self, rows: List[Dict[str, Any]]) -> None:
-        """The TT fills tape. INSERT OR IGNORE: a resent report is one fill."""
+    def save_venue_fills(self, rows: List[Dict[str, Any]]) -> None:
+        """The Stellar fills tape. INSERT OR IGNORE: a resent report is one fill."""
         if not rows:
             return
-        cols = self.TT_FILL_COLUMNS
+        cols = self.VENUE_FILL_COLUMNS
         with self._lock, self._connect() as conn:
             conn.executemany(
-                f"INSERT OR IGNORE INTO tt_fills ({','.join(cols)}) "
+                f"INSERT OR IGNORE INTO venue_fills ({','.join(cols)}) "
                 f"VALUES ({','.join('?' * len(cols))})",
                 [[r.get(c) for c in cols] for r in rows])
             conn.commit()
 
-    def tt_fills(self, limit: int = 500) -> List[Dict[str, Any]]:
+    def venue_fills(self, limit: int = 500) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             return [dict(r) for r in conn.execute(
-                "SELECT * FROM tt_fills ORDER BY received DESC, rowid DESC"
+                "SELECT * FROM venue_fills ORDER BY received DESC, rowid DESC"
                 " LIMIT ?", (limit,)).fetchall()]
 
     def orders(self, contract_key: Optional[str] = None,
@@ -459,7 +460,7 @@ class Database:
 
     def price_unit(self, key: str) -> Optional[float]:
         """The display factor this contract's recorded prices are in, or
-        None: recorded in TT's FIX units, before prices were converted."""
+        None: recorded before the factor was kept."""
         with self._connect() as conn:
             row = conn.execute("SELECT factor FROM price_units WHERE "
                                "contract_key = ?", (key,)).fetchone()

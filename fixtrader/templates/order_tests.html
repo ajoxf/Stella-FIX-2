@@ -1,7 +1,7 @@
 {% extends "_page.html" %}
 {% block title %}Order tests · Nexus FIX{% endblock %}
 {% block heading %}Order tests{% endblock %}
-{% block crumb %}<span id="ot-crumb">test every order flow on TT UAT</span>{% endblock %}
+{% block crumb %}<span id="ot-crumb">test every order flow on Stellar UAT</span>{% endblock %}
 {% block actions %}
   <span id="ot-exec" class="pill">&mdash;</span>
 {% endblock %}
@@ -29,8 +29,8 @@
   <section class="card ot-step">
     <h5><span class="n">2</span> Check automatically <span class="note" id="ot-run-note"></span></h5>
     <div class="cb">
-      <p class="ot-hint">Press <b>Check</b> on a group: the program does each step below with real orders on TT UAT
-        — exactly as you would on the ladder — and ticks it when TT answers as it should. It ends flat.</p>
+      <p class="ot-hint">Press <b>Check</b> on a group: the program does each step below with real orders on Stellar UAT
+        — exactly as you would on the ladder — and ticks it when Stellar answers as it should. It ends flat.</p>
       <div class="ot-groups">
         <div class="ot-group" data-kind="manual" data-type="market">
           <div class="ot-ghead"><span><b>Manual · Market orders</b><em>You send it — fills straight away at the best price.</em></span>
@@ -69,7 +69,7 @@
       <div><b>By hand</b> — Algo switch on <b>OFF</b> (or SIGNALS). BUY / SELL, or click a price: Bids buys,
         Asks sells. Cancel from Working orders. CLOSE ALL, Close @ LMT.</div>
       <div><b>As the Algo</b> — Algo switch on <b>UAT</b>. BUY / SELL, or a price click, makes the Algo send its
-        order to TT UAT now, as on a signal; its take-profit and stop loss then manage it.</div>
+        order to Stellar UAT now, as on a signal; its take-profit and stop loss then manage it.</div>
     </div>
     <p class="ot-hint"><b>Tried it yourself?</b> Tick it off:</p>
     <div id="ot-tried" class="ot-tried"></div>

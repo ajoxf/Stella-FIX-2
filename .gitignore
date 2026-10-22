@@ -4,11 +4,11 @@ __pycache__/
 venv/
 .env
 config.json
-config.tt-uat.json
-status.tt-uat.json
-status.tt-uat.json.quotes.json
-commands.tt-uat.jsonl
-results.tt-uat.json
+config.stellar-uat.json
+status.stellar-uat.json
+status.stellar-uat.json.quotes.json
+commands.stellar-uat.jsonl
+results.stellar-uat.json
 *.db
 *.db-wal
 *.db-shm

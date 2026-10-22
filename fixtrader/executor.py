@@ -371,7 +371,7 @@ class Executor:
     def cancel_all(self, contract_key: Optional[str] = None,
                    side: Optional[str] = None) -> int:
         """Cancel OUR working orders, scoped by ClOrdID. Never touches an
-        order this system did not send — a hand order in TT is not ours.
+        order this system did not send — a hand order in Stellar is not ours.
         `side` ('BUY'/'SELL') pulls one side only — the ladder's B and S."""
         n = 0
         for wo in list(self.working.values()):

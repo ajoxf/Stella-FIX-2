@@ -4,29 +4,29 @@ Open **http://localhost:8000/instruments**. Both FIX sessions must be connected.
 
 1. Search an exchange and product: for example **CME**, **ES**, **Futures**.
    Optionally restrict expiry using **YYYYMM**. Search results are definitions
-   received from TT, not a hardcoded symbol list.
-2. Check the contract code, expiry and TT Security ID. Choose **Add + subscribe**.
+   received from Stellar (Security List), not a hardcoded symbol list.
+2. Check the contract, expiry and Stellar Security ID. Choose **Add + subscribe**.
    The watchlist survives restarts and subscribes again after reconnection.
 3. Read bid, ask, sizes, last trade, midpoint and bid/ask spread. A missing
    quote is not zero. Quotes older than 15 seconds are marked stale.
-   Incoming TT updates use a server-sent event channel with 5 ms burst
+   Incoming Stellar updates use a server-sent event channel with 5 ms burst
    coalescing. The screen reports quote age and application delivery latency
    in milliseconds. This latency begins when the application receives FIX;
-   it does not measure exchange-to-TT network latency.
+   it does not measure exchange-to-Stellar network latency.
 4. Choose **Buy** or **Sell**, then enter account, total quantity, order type,
-   time in force, and required limit/stop/expiry fields.
+   time in force, and required limit/stop fields.
 5. Choose **Review order**. Inspect the parameters and optionally the exact
    application FIX fields. **Confirm · Send UAT order** sends the ticket.
    A preview expires after 60 seconds. Repeated confirmation of the same
    token does not send another order.
 6. Follow order acknowledgements and fills in **Orders** and **Executions**.
-   Cancel and replace remain requests until TT responds. Replacement quantity
+   Cancel and replace remain requests until Stellar responds; both go by Stellar's OrderID (37). Replacement quantity
    is the new **total** order quantity, not the unfilled remainder.
 
 ## Explorer, ladders and closing fills
 
 **Explore instruments** provides Exchange, Type, Product and Instrument columns.
-The lists contain definitions received from TT in this session plus saved symbols;
+The lists contain definitions received from Stellar in this session plus saved symbols;
 they are not an exhaustive exchange directory. Enter an exchange/product code and
 click **Search contracts** to discover more, then select an exact contract and
 click **Select + subscribe**.
@@ -34,10 +34,10 @@ click **Select + subscribe**.
 Use **Ladder** in the watchlist to open up to four outright or exchange-listed
 spread ladders. Click a price, set quantity and time in force, then **Review BUY**
 or **Review SELL**. A separate confirmation still sends the order. Centre and
-Lock centre control the price window. **Request full depth** changes the TT
-subscription; only reported quantities are displayed. Availability depends on
-the venue and market-data entitlement. Depth positions are applied using TT's
-before-message indexing rules.
+Lock centre control the price window. **Request full depth** changes the Stellar
+subscription (264=0); only reported quantities are displayed. Availability depends on
+the venue and market-data entitlement. Depth positions (290) are applied against the book as it stood before the
+message.
 
 **Close position** appears beside eligible filled orders and in their ladder.
 It reviews an opposite-side MARKET/DAY order with Open/Close=C for the unclosed
@@ -45,82 +45,71 @@ fills tracked by this ticket. Pending or uncertain close requests reserve their
 quantity, preventing a duplicate close from this application. Working orders
 must be cancelled and acknowledged before their partial fills can be closed.
 This is a local fill ledger, not a full-account position reconciliation: trades
-elsewhere must be checked in TT before confirming. Opening a review does not send.
+elsewhere must be checked in Stellar before confirming. Opening a review does not send.
 
 ## Price units
 
-**Every price on the screen is the price a trader knows** — Crude ~90, Gold
-~4170 — never TT's FIX price (Crude `9057`, Gold `41998`). TT sends prices in
-its FIX units; the instrument's **DisplayFactor (tag 9787)** turns one into the
-other: `screen price = FIX price x 9787` (CL `9057 x 0.01 = 90.57`). The
-conversion is made once, at the FIX boundary (`ManualTerminal.to_display` /
-`to_fix`), in both directions: quotes (270), fills (31, 6) and a replace's
-price (44) coming in; ticket prices (44) and stops (99) going out — for the
-manual ticket and the Algo's orders alike.
+**Every price on the screen is the price a trader knows**, and Stellar sends
+prices that way already — a JGB as `150.25`, a Eurodollar as `99.180`. There
+is no display factor: a quote (270), a trade (31) and a replace's price (44)
+come in as sent, and a ticket's price (44) and stop (99) go out as typed. The
+one place a price crosses the FIX boundary (`ManualTerminal.to_display` /
+`to_fix`) is kept, at a factor of 1, for the manual ticket and the Algo alike.
 
-Where TT sends no 9787 the factor is the ratio of the exchange's tick (16552,
-in screen prices) to TT's tick (969, in FIX units) when that is a power of ten;
-a definition that gives neither is in screen prices already (factor 1). The
-exchange tick (16552) is in screen prices, which is why `money = points x
-tick_value / tick_size x qty` was wrong by the factor while prices were raw.
+The tick is Stellar's MinPriceIncrement (969, "point increment") and its money
+value MinPriceIncrementAmount (1146, "value of 1 point increment"): JGB
+`969=0.01`, `1146=10000.00`. So `money = points x tick_value / tick_size x qty`.
 
-A contract whose factor TT has not sent is not traded by the Algo: nothing is
-recorded for it and entries wait, saying why. Recordings and orders made by an
-earlier version (in FIX units) are rescaled once when the factor is first seen,
-and the factor is kept beside them (`price_units`).
+Prices are asked for by Stellar's Security ID (48), e.g.
+`F.STS_OSE 10-year JGB.DEC17` — spaces and all; it is unique, where a product
+name such as ES is not. An ORDER names the instrument the way Stellar's
+Security List does: symbol, CFI code, maturity, exchange — and a listed
+strategy by its legs. A contract whose Security List entry has not arrived yet
+cannot be ordered, and the review says so.
 
-Use the exact TT Security ID (48, source 22=96). A product name such as ES can
-represent many different expiries. It is not a unique tradable instrument.
-All returned top-level FIX fields are visible under instrument parameters;
-spread-leg identity, direction and ratio are shown separately.
-
-For listed spreads, search **Listed spreads / strategies (MLEG)**. Select the
-returned contract, for example a calendar spread, inspect its legs, then add
-it to the watchlist. The spread is submitted as one exchange instrument using
-its exact TT ID. Negative and zero spread limit prices are accepted by the
-ticket; prices must align to the returned tick size.
+For listed spreads, search **Listed spreads / strategies (MLEG)** (CFI
+`MXXXXX`). Select the returned strategy, inspect its legs, then add it to the
+watchlist. It is submitted as ONE strategy order — New Order Multi-leg
+(35=AB) with its legs (555) and subtype (762) — never as legs. Negative and
+zero spread limit prices are accepted by the ticket; prices must align to the
+returned tick size. Stellar reports a strategy's trade AND each leg's (442=2):
+only the strategy's is booked.
 
 ## Ticket fields
 
 | Field | FIX tag / behavior |
 |---|---|
-| Account | 1 |
-| Instrument | 55, 48, 22=96 |
+| Account | 448 with 452=24 (Stellar Account Name) |
+| Stellar User Name | 448 with 452=11, from the venue |
+| Exchange clearing account 1 | 448 with 452=1000, from the venue when set (CME, KRX) |
+| Instrument | 55, 461 (CFI), 167, 200 (maturity), 202 (strike), 207 (exchange) |
+| Listed strategy | 35=AB, 555 legs (600 / 608 / 610 / 623 / 624), 762 subtype |
 | Buy / sell | 54=1 / 2 |
 | Total quantity | 38 |
 | Market / limit / stop / stop-limit | 40=1 / 2 / 3 / 4 |
-| Market-on-close / limit-on-close / post-only | 40=5 / B / p |
 | Limit price | 44; required for priced order types |
 | Stop trigger | 99; required for Stop and Stop Limit |
-| Day / GTC / at-open / IOC / FOK / GTD / at-close | 59 |
-| GTD expiry date | 432; required for GTD |
-| Minimum quantity | 110 |
-| Displayed quantity | 1138 |
-| Open / close / FIFO | 77=O / C / F; account default if blank |
-| Order capacity / customer capacity | 528 / 582 |
-| Order note | 58 |
-| Cancel on disconnect | 18=o 2; unavailable with GTC/GTD |
-| Manual order indicator | 1028=Y |
+| Day / GTC / IOC / FOK | 59=0 / 1 / 3 / 4 |
+| Open / close | 77=O / C — not in Stellar's spec, sent unless switched off on the venue |
+| Exchange text | 448 with 452=1002 (a close's reference: `Close FTM-…`) |
+| MiFID | 29, 1724=5, 452=3 / 12 / 122 short codes — from the venue when set, qualified 24 (person) |
+| Handling | 21=1 |
 
-CME FOK is encoded as 59=3 with 110 equal to total quantity; CME IOC omits
-110. Exchange and account permissions still determine accepted combinations.
-TT rejections are displayed with the venue's message.
+Exchange and account permissions still determine accepted combinations.
+Stellar's rejections are displayed with Stellar's message (58) and its reason
+code (103) in words.
 
 ## Scope
 
 Manual tickets use IDs beginning `FTM-` and a separate persistent ledger.
 The algorithm does not own or close these orders. After a lost connection or
-restart, unresolved orders are marked **UNKNOWN**; they are not silently
-resent. Verify them in TT before placing a replacement order.
+restart, unresolved orders are marked **UNKNOWN** and Stellar is asked for
+their status (Order Status Request, 35=H) once the Order Router is back; they
+are never silently resent.
 
-This is a UAT integration. Full-account position recovery, automated strategy
-execution, synthetic multi-order spreads, bracket/OCO orders and TT synthetic
-algo types are not implemented. Instruments with variable tick tables are
-blocked at review until their price-dependent validation is implemented.
-An Open/Close flag is not a client-side reduce-only guarantee.
+Full-account position recovery (Stellar's Order Router provides no
+positions), synthetic multi-order spreads and bracket/OCO orders are not
+implemented. An Open/Close flag is not a client-side reduce-only guarantee.
 
-Protocol references:
-
-- [TT New Order Single](https://library.tradingtechnologies.com/tt-fix/tt-fix-order-routing/supported-application-messages/new-order-single-d-message/)
-- [TT Security Definition](https://library.tradingtechnologies.com/tt-fix/tt-fix-market-data/supported-application-messages-tt-fix-market-data/security-definition-message/)
-- [TT Market Data Request](https://library.tradingtechnologies.com/tt-fix/tt-fix-market-data/supported-application-messages-tt-fix-market-data/market-data-request-v-message/)
+Protocol references: the Stellar FIX Order Router Specification (03/04/2018)
+and the Stellar FIX Market Data Feed Specification (29/09/2017).

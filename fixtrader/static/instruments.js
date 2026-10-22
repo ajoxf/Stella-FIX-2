@@ -3,29 +3,29 @@
   const $ = id => document.getElementById(id);
   let snapshot = {}, data = {}, selected = null, optionSignature = '', confirmation = null, searchRequest = '';
   let explorerSignature = '', streamState = 'connecting', streamLatency = null, latestReceived = 0;
-  const EXPLORER_TYPES=[['FUT','Future'],['MLEG','Spread'],['OPT','Option'],['CS','Stock'],['FOR','Forward'],['SPOT','Spot']];
+  const EXPLORER_TYPES=[['FUT','Future'],['MLEG','Spread'],['OPT','Option'],['CS','Stock']];
   const explorer = {exchange:'CME', type:'MLEG', product:'', contract:'', filter:''};
   // The last exchange/type/product is a per-viewer convenience: it may be
   // unavailable (private window, blocked storage) and the page works without it.
   try{Object.assign(explorer,JSON.parse(localStorage.getItem('ft.explorer')||'{}'),{contract:'',filter:''});}catch(e){}
   const rememberExplorer=()=>{try{localStorage.setItem('ft.explorer',JSON.stringify({exchange:explorer.exchange,type:explorer.type,product:explorer.product}));}catch(e){}};
-  // `CL BZ`, `CL-BZ`, `cl/bz` and `CL|BZ` are the same product: TT writes the
-  // inter-commodity ones with a bar.
+  // `CL BZ`, `CL-BZ`, `cl/bz` and `CL|BZ` are the same product: an
+  // inter-commodity spread is filed here under its leg products, with a bar.
   const productOf=v=>String(v||'').trim().toUpperCase().replace(/[\s/:+,]+|-(?=[A-Z])/g,'|').replace(/^\|+|\|+$/g,'');
   window.addEventListener('error',event=>{const status=$('feed-status');if(status)status.textContent=`Display error: ${event.message}. Refresh the page; prices are not being presented as live.`;});
   const fmt = n => n === null || n === undefined || n === '' ? '—' : typeof n === 'number' ? Number(n.toFixed(8)).toString() : String(n);
   const clock = n => n ? new Date(n).toLocaleTimeString([], {hour12:false}) : '—';
   function quoteStatus(q) {
     if(!snapshot.engine?.alive)return 'Engine offline · historical prices';
-    if(!q.timestamp)return q.error||'No quote received from TT';
+    if(!q.timestamp)return q.error||'No quote received from Stellar';
     const age=Math.max(0,Math.floor((Date.now()-Date.parse(q.timestamp))/1000));
     const precise=Math.max(0,Date.now()-Date.parse(q.timestamp));
     const proof=q.fix_message_type?` · FIX ${q.fix_message_type}${q.fix_sequence?' seq '+q.fix_sequence:''}`:'';
-    return q.stale?`Not fresh · last update ${age}s ago${proof}`:`TT FIX UAT · age ${precise} ms${proof}`;
+    return q.stale?`Not fresh · last update ${age}s ago${proof}`:`Stellar FIX UAT · age ${precise} ms${proof}`;
   }
   function applyQuoteFrame(frame) {
-    streamState=frame.source==='TT_FIX_UAT'&&frame.simulated===false&&frame.connected?'verified TT FIX stream':'disconnected';
-    // FIX-to-screen is measured on a NEW quote only — one TT sent just now
+    streamState=frame.source==='STELLAR_FIX'&&frame.simulated===false&&frame.connected?'verified Stellar FIX stream':'disconnected';
+    // FIX-to-screen is measured on a NEW quote only — one Stellar sent just now
     // (published within 2 s of reaching our FIX session). An old quote
     // re-published says how old the quote is, not how fast the screen is:
     // that read "33289 ms" on a quiet market.
@@ -53,11 +53,11 @@
   function renderFeed() {
     const engine=snapshot.engine||{};
     const md=engine.fix_connection?.sessions?.find(s=>s.name==='Market Data');
-    const text=[`Source: TT ${engine.environment||'UAT'} FIX`,`Market data: ${md?.status||'DISCONNECTED'}`,
+    const text=[`Source: Stellar ${engine.environment||'UAT'} FIX`,`Market data: ${md?.status||'DISCONNECTED'}`,
       `quote stream: ${streamState}`,`FIX-to-screen ${streamLatency===null?'—':streamLatency+' ms'}`,
       `last heartbeat ${clock(md?.last_heartbeat)}`].join(' · ');
     const el=$('feed-status');
-    if(el.textContent!==text){el.textContent=text;el.title=text+'. FIX-to-screen: from our FIX session receiving a new TT quote to this screen showing it. A quote\'s age on its row is measured from TT\'s last update.';}
+    if(el.textContent!==text){el.textContent=text;el.title=text+'. FIX-to-screen: from our FIX session receiving a new Stellar quote to this screen showing it. A quote\'s age on its row is measured from Stellar\'s last update.';}
   }
   function connectQuoteStream() {
     if(!window.EventSource)return;
@@ -101,7 +101,7 @@
     selected=instrument;
     $('instrument-description').textContent=instrument.description || instrument.symbol;
     const dl=document.createElement('dl');
-    for (const [name,key] of [['TT Security ID','security_id'],['Product symbol','symbol'],['Exchange','exchange'],['Type','security_type'],['Expiry month','maturity'],['Expiry date','expiry_date'],['Currency','currency'],['Tick size','tick_size'],['Tick value','tick_value'],['Point value','point_value'],['Display factor (9787: screen = FIX x factor)','display_factor'],['Display factor from','display_factor_source'],['Contract code','contract_code'],['Contract multiplier','multiplier'],['Minimum trade volume','min_qty'],['Strike','strike'],['Put / call (0 put, 1 call)','put_call'],['Strategy subtype','subtype']]) {
+    for (const [name,key] of [['Stellar Security ID','security_id'],['Product symbol','symbol'],['Exchange','exchange'],['Type','security_type'],['Expiry month','maturity'],['Expiry date','expiry_date'],['Currency','currency'],['Tick size','tick_size'],['Tick value','tick_value'],['Point value','point_value'],['CFI code','cfi'],['Contract code','contract_code'],['Contract multiplier','multiplier'],['Minimum trade volume','min_qty'],['Strike','strike'],['Put / call (0 put, 1 call)','put_call'],['Strategy subtype','subtype']]) {
       const wrap=document.createElement('div');wrap.append(text('dt',name),text('dd',fmt(instrument[key])));dl.append(wrap);
     }
     $('instrument-details').replaceChildren(dl);
@@ -123,7 +123,7 @@
   }
   function renderResults() {
     if (searchRequest && data.search?.request_id !== searchRequest) {
-      $('results').replaceChildren(); empty($('results'),8,'Waiting for the new TT search…');
+      $('results').replaceChildren(); empty($('results'),8,'Waiting for the new Stellar search…');
       $('search-status').textContent='Searching…'; return;
     }
     const rows=document.createDocumentFragment(), filter=$('filter').value.toLowerCase();
@@ -137,7 +137,7 @@
       first.append(button(instrument.display_name||instrument.description||instrument.symbol,()=>showInstrument(instrument)));row.append(first);
       for (const key of ['symbol','exchange','security_type','maturity','security_id','currency']) row.append(text('td',fmt(instrument[key])));
       const action=document.createElement('td');
-      action.append(button('Add + subscribe',async()=>{await command('add',{security_id:instrument.security_id});showInstrument(instrument);notice('Symbol saved. Waiting for TT market data.');}));row.append(action);rows.append(row);
+      action.append(button('Add + subscribe',async()=>{await command('add',{security_id:instrument.security_id});showInstrument(instrument);notice('Symbol saved. Waiting for Stellar market data.');}));row.append(action);rows.append(row);
     }
     $('results').replaceChildren(rows);
     if (!found.length) empty($('results'),8,'No matching instruments received. Check exchange/product and the search status.');
@@ -152,7 +152,7 @@
       for (const key of ['bid_size','bid','ask','ask_size','last','mid','spread']) row.append(text('td',fmt(q[key]),q.stale?'stale':key==='bid'?'bid':key==='ask'?'ask':''));
       const stamp=text('td',clock(q.timestamp));
       stamp.append(text('div',quoteStatus(q),q.stale?'stale':'quote-live'));
-      // Why there are no prices, in words: refused by TT, nobody quoting, no answer.
+      // Why there are no prices, in words: refused by Stellar, nobody quoting, no answer.
       const fs=q.feed_status;
       if (fs && !['LIVE','ONE_SIDED'].includes(fs.state)) stamp.append(text('div',fs.text,'quote-message'));
       else if (q.error) stamp.append(text('div',q.error,'quote-message'));
@@ -160,7 +160,7 @@
       const actions=document.createElement('td');actions.append(button('Buy',()=>ticketFor(i,'BUY'),'buy'),button('Sell',()=>ticketFor(i,'SELL'),'sell'),button('Remove',async()=>{await command('remove',{security_id:i.security_id});notice('Removed from the watchlist.');}),button('Algo desk…',()=>toAlgoDesk(i)));row.append(actions);rows.append(row);
     }
     $('watchlist').replaceChildren(rows);
-    if (!data.watchlist?.length) empty($('watchlist'),10,'Add a returned TT instrument to subscribe to its prices.');
+    if (!data.watchlist?.length) empty($('watchlist'),10,'Add a returned Stellar instrument to subscribe to its prices.');
     const signature=(data.watchlist||[]).map(w=>w.instrument.security_id).join(',');
     if(signature!==optionSignature){
       const previous=$('ticket-instrument').value;optionSignature=signature;
@@ -179,7 +179,7 @@
     content.append(text('h3',ticket.instrument.display_name||ticket.instrument.symbol),
       text('p',`${ticket.side} ${ticket.quantity} at MARKET · Account ${ticket.account} · Open/Close: CLOSE`),
       text('p',`Closes fills from ${order.id}. Market execution price is not guaranteed.`),
-      text('p','Quantity is based on this ticket’s fills. Confirm it is still open in TT if you traded it elsewhere.'));
+      text('p','Quantity is based on this ticket’s fills. Confirm it is still open in Stellar if you traded it elsewhere.'));
     confirmDialog('Review close position',content,'Confirm · Close position',()=>command('submit',{token:review.token,confirmed:true}));
   }
   function explorerMatches(){
@@ -189,14 +189,14 @@
     const same=(a,b)=>a===b||(a.includes('|')&&[...a.split('|')].sort().join('|')===[...b.split('|')].sort().join('|'));
     const inProduct=onVenue.filter(i=>same(i.product_key||i.symbol,explorer.product));
     const tokens=explorer.filter.toLowerCase().split(/\s+/).filter(Boolean);
-    const contracts=inProduct.filter(i=>{const hay=[i.tt_name,i.structure,i.description,i.contract_code,i.display_name,i.security_id].join(' ').toLowerCase();return tokens.every(t=>hay.includes(t));})
-      .sort((a,b)=>(a.leg_months||a.maturity||'').localeCompare(b.leg_months||b.maturity||'')||(a.tt_name||'').localeCompare(b.tt_name||''));
+    const contracts=inProduct.filter(i=>{const hay=[i.venue_name,i.structure,i.description,i.contract_code,i.display_name,i.security_id].join(' ').toLowerCase();return tokens.every(t=>hay.includes(t));})
+      .sort((a,b)=>(a.leg_months||a.maturity||'').localeCompare(b.leg_months||b.maturity||'')||(a.venue_name||'').localeCompare(b.venue_name||''));
     return {catalogue,onVenue,inProduct,contracts};
   }
   // The algo desk trades what config.json lists. This fills in the contract
-  // form from TT's own definition; the trader reviews it and presses Save.
+  // form from Stellar's own definition; the trader reviews it and presses Save.
   function toAlgoDesk(i){
-    const q=new URLSearchParams({prefill:'1',name:i.tt_name||i.display_name||i.symbol,symbol:i.symbol,security_id:i.security_id,
+    const q=new URLSearchParams({prefill:'1',name:i.venue_name||i.display_name||i.symbol,symbol:i.symbol,security_id:i.security_id,
       security_exchange:i.exchange,tick_size:i.tick_size||'',tick_value:i.tick_value||'',contract_multiplier:i.point_value||'',currency:i.currency||''});
     window.location.href='/exchanges?'+q.toString();
   }
@@ -208,39 +208,39 @@
     options('explore-exchange',[...new Set([explorer.exchange,...catalogue.map(i=>i.exchange)])].filter(Boolean).sort().map(v=>[v,v]),explorer.exchange);
     if(document.activeElement!==$('explore-exchange-input'))$('explore-exchange-input').value=explorer.exchange;
     options('explore-type',EXPLORER_TYPES,explorer.type);
-    // Products as TT files them, with how many contracts each holds, narrowed
+    // Products as Stellar files them, with how many contracts each holds, narrowed
     // by whatever is typed in the box above the list.
     const counts=new Map(), described=new Map();
     for(const i of onVenue){const k=i.product_key||i.symbol;counts.set(k,(counts.get(k)||0)+1);if(!described.has(k)&&i.description)described.set(k,i.description);}
     const typed=productOf($('explore-product-input').value), wanted=typed.split('|').filter(Boolean);
     // A product matches when it has every typed leg product, in any order:
-    // `HO|CL` finds TT's `CL|HO`. When nothing matches, every product is
-    // shown rather than an empty list, so what TT DID send is visible.
+    // `HO|CL` finds Stellar's `CL|HO`. When nothing matches, every product is
+    // shown rather than an empty list, so what Stellar DID send is visible.
     const all=[...counts.keys()], parts=k=>k.split('|');
     const hits=all.filter(k=>k===explorer.product||wanted.every(w=>parts(k).some(p=>p.startsWith(w))));
     const products=(hits.length?hits:all).sort((a,b)=>parts(a).length-parts(b).length||a.localeCompare(b));
     options('explore-product',products.map(k=>[k,`${k}  (${counts.get(k)})`,described.get(k)]),explorer.product);
     if(document.activeElement!==$('explore-product-input'))$('explore-product-input').value=explorer.product;
     if(!contracts.some(i=>i.security_id===explorer.contract))explorer.contract='';
-    options('explore-contract',contracts.slice(0,2000).map(i=>[i.security_id,i.tt_name||i.display_name||i.symbol,[i.structure,i.description,i.contract_code].filter(Boolean).join(' · ')]),explorer.contract);
+    options('explore-contract',contracts.slice(0,2000).map(i=>[i.security_id,i.venue_name||i.display_name||i.symbol,[i.structure,i.description,i.contract_code].filter(Boolean).join(' · ')]),explorer.contract);
     const pick=contracts.find(i=>i.security_id===explorer.contract), detail=$('explore-detail');
     detail.replaceChildren();
     if(pick){
-      detail.append(text('b',pick.tt_name||pick.display_name));
-      for(const part of [pick.structure,pick.description,pick.contract_code&&'code '+pick.contract_code,'TT Security ID '+pick.security_id,
+      detail.append(text('b',pick.venue_name||pick.display_name));
+      for(const part of [pick.structure,pick.description,pick.contract_code&&'code '+pick.contract_code,'Stellar Security ID '+pick.security_id,
                          pick.tick_size&&`tick ${pick.tick_size}`+(pick.tick_value?` = ${pick.tick_value} ${pick.currency||''}`:'')].filter(Boolean))detail.append(' · '+part);
-    }else detail.textContent=explorer.product&&described.get(explorer.product)?`${explorer.product} — ${described.get(explorer.product)}`:'Select an instrument to see its legs, TT Security ID and tick value.';
+    }else detail.textContent=explorer.product&&described.get(explorer.product)?`${explorer.product} — ${described.get(explorer.product)}`:'Select an instrument to see its legs, Stellar Security ID and tick value.';
     const search=data.search||{}, typeName=(EXPLORER_TYPES.find(t=>t[0]===explorer.type)||[])[1]||explorer.type;
     let status;
-    if(!explorer.product)status=`${counts.size} ${typeName.toLowerCase()} products cached for ${explorer.exchange}. Choose one, or type a product and press Search TT.`;
-    else if(!inProduct.length)status=`No ${explorer.product} ${typeName.toLowerCase()}s cached for ${explorer.exchange} yet. Press Search TT to fetch them`+(explorer.product.includes('|')?` (asks TT for the product ${explorer.product}, then for ${explorer.product.split('|').join(' and ')}).`:'.');
+    if(!explorer.product)status=`${counts.size} ${typeName.toLowerCase()} products cached for ${explorer.exchange}. Choose one, or type a product and press Search Stellar.`;
+    else if(!inProduct.length)status=`No ${explorer.product} ${typeName.toLowerCase()}s cached for ${explorer.exchange} yet. Press Search Stellar to fetch them`+(explorer.product.includes('|')?` (asks Stellar for the product ${explorer.product}, then for ${explorer.product.split('|').join(' and ')}).`:'.');
     else status=`${contracts.length} of ${inProduct.length} ${explorer.product} contracts`+(contracts.length>2000?' · showing the first 2000; type in the filter':'')+'. Double-click an instrument to subscribe.';
-    // TT never says a search has finished, so its status is shown only while
+    // Stellar never says a search has finished, so its status is shown only while
     // one is recent enough to still be arriving.
     if(search.started&&Date.now()/1000-search.started<60){
-      // What TT actually answered, so an empty list is never a mystery.
-      status+=` · last TT search ${search.symbol||''} ${search.security_type||''}: ${search.status}, ${(data.instruments||[]).length} definitions received`;
-      if(search.error)status+=` · TT said: ${search.error}`;
+      // What Stellar actually answered, so an empty list is never a mystery.
+      status+=` · last Stellar search ${search.symbol||''} ${search.security_type||''}: ${search.status}, ${(data.instruments||[]).length} definitions received`;
+      if(search.error)status+=` · Stellar said: ${search.error}`;
     }
     $('explore-status').textContent=status;
   }
@@ -259,14 +259,14 @@
           content.append(text('h3',ticket.instrument.display_name||ticket.instrument.symbol),
             text('p',`${ticket.side} ${ticket.quantity} at MARKET · Account ${ticket.account} · Open/Close: CLOSE`),
             text('p',`Closes fills from ${order.id}. Market execution price is not guaranteed.`),
-            text('p','This quantity is based on this ticket’s fills. Confirm the position is still open in TT if you traded it elsewhere.'));
+            text('p','This quantity is based on this ticket’s fills. Confirm the position is still open in Stellar if you traded it elsewhere.'));
           confirmDialog('Review close position',content,'Confirm · Close position',()=>command('submit',{token:review.token,confirmed:true}));
         }));
       }
       if (order.closed_qty > 0) actions.append(text('div',`Closed: ${fmt(order.closed_qty)}`,'tiny'));
       if (order.close_of) actions.append(text('div','Closing '+order.close_of,'tiny'));
       if (['NEW','PARTIALLY_FILLED','REPLACED'].includes(order.status)&&!order.pending) {
-        actions.append(button('Cancel',()=>confirmDialog('Cancel UAT order',text('p',`Request cancellation of ${order.id}? It remains working until TT confirms cancellation.`),'Request cancel',()=>command('cancel',{order_id:order.id}))));
+        actions.append(button('Cancel',()=>confirmDialog('Cancel UAT order',text('p',`Request cancellation of ${order.id}? It remains working until Stellar confirms cancellation.`),'Request cancel',()=>command('cancel',{order_id:order.id}))));
         if (!order.close_of) actions.append(button('Replace',()=>{
           const form=document.createElement('div');form.className='form-grid ticket-fields';
           for(const [key,label] of [['quantity','New total quantity'],['price','New limit price'],['stop_price','New stop trigger']]) {
@@ -286,7 +286,7 @@
   // blank where nothing was measured — never a zero.
   function slipCell(f) {
     const ticks=f.slippage_ticks, cell=document.createElement('td');
-    if(ticks===null||ticks===undefined){cell.textContent='—';cell.title=f.decision_price==null?'no fresh TT quote when the ticket was sent':'';return cell;}
+    if(ticks===null||ticks===undefined){cell.textContent='—';cell.title=f.decision_price==null?'no fresh Stellar quote when the ticket was sent':'';return cell;}
     cell.textContent=(ticks>0?'+':'')+Number(ticks).toFixed(2)+' t'+(f.slippage_money==null?'':' · '+(f.slippage_money<0?'-':'')+'$'+Math.abs(f.slippage_money).toFixed(2));
     cell.className=ticks>0?'slip-cost':ticks<0?'slip-better':'';
     return cell;
@@ -308,28 +308,28 @@
   function conditionals() {
     const type=$('order-type').value, tif=$('tif').value, form=$('ticket-form');
     const limit=['LIMIT','STOP_LIMIT','LIMIT_ON_CLOSE','POST_ONLY'].includes(type), stop=['STOP','STOP_LIMIT'].includes(type);
-    for(const [id,name,needed] of [['price-label','price',limit],['stop-label','stop_price',stop],['expiry-label','expire_date',tif==='GTD']]){
+    for(const [id,name,needed] of [['price-label','price',limit],['stop-label','stop_price',stop]]){
       $(id).hidden=!needed;form.elements[name].disabled=!needed;form.elements[name].required=needed;
     }
   }
-  $('search-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;searchRequest='pending';$('filter').value='';renderResults();try{const result=await command('search',Object.fromEntries(new FormData(e.target)));searchRequest=result.request_id;notice('Search sent to TT. Results arrive asynchronously.');}catch(error){searchRequest='';notice(error.message,true);}finally{b.disabled=false;}});
+  $('search-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;searchRequest='pending';$('filter').value='';renderResults();try{const result=await command('search',Object.fromEntries(new FormData(e.target)));searchRequest=result.request_id;notice('Search sent to Stellar. Results arrive asynchronously.');}catch(error){searchRequest='';notice(error.message,true);}finally{b.disabled=false;}});
   $('ticket-form').addEventListener('submit',async e=>{
     e.preventDefault();$('review-order').disabled=true;
     try{
-      const args=Object.fromEntries(new FormData(e.target));args.cancel_on_disconnect=e.target.elements.cancel_on_disconnect.checked;
+      const args=Object.fromEntries(new FormData(e.target));
       const r=await command('preview',args), wrap=document.createElement('div'), dl=document.createElement('dl');
       for(const [key,value] of Object.entries(r.ticket)){if(key==='instrument')continue;const div=document.createElement('div');div.append(text('dt',key.replaceAll('_',' ')),text('dd',fmt(value)));dl.append(div);}
       const spread=r.book&&r.book.text?text('p',r.book.text):null;
       if(spread)spread.className='spread-line'+(r.book.wide?' wide':'');
       wrap.append(text('h3',r.ticket.instrument.display_name||r.ticket.instrument.description||r.ticket.instrument.symbol));
       if(spread)wrap.append(spread);
-      wrap.append(dl,text('p','Review expires in 60 seconds. Confirming sends this order to TT UAT. Exchange acceptance is reported below.'));
+      wrap.append(dl,text('p','Review expires in 60 seconds. Confirming sends this order to Stellar UAT. Exchange acceptance is reported below.'));
       const details=document.createElement('details');details.append(text('summary','FIX fields to be sent'),text('pre',r.fields.map(([k,v])=>`${k}=${v}`).join('\n')));wrap.append(details);
       confirmDialog('Review UAT order',wrap,'Confirm · Send UAT order',()=>command('submit',{token:r.token,confirmed:true}));
     }catch(error){notice(error.message,true);}finally{$('review-order').disabled=false;}
   });
   $('risk-form').addEventListener('submit',async e=>{e.preventDefault();const args=Object.fromEntries(new FormData(e.target));args.trading_enabled=e.target.elements.trading_enabled.checked;try{const result=await command('risk',args);data.risk=result.risk;e.target.dataset.loaded='';renderRisk();notice('Manual trading safety limits saved.');}catch(error){notice(error.message,true);}});
-  $('confirm').addEventListener('click',async()=>{if(!confirmation)return;$('confirm').disabled=true;try{const r=await confirmation();confirmation=null;$('review-dialog').close();notice(r&&r.message?r.message:`Request sent${r&&r.order_id?' · '+r.order_id:''}. Wait for TT acknowledgement.`);}catch(e){$('review-error').textContent=e.message;}finally{$('confirm').disabled=false;}});
+  $('confirm').addEventListener('click',async()=>{if(!confirmation)return;$('confirm').disabled=true;try{const r=await confirmation();confirmation=null;$('review-dialog').close();notice(r&&r.message?r.message:`Request sent${r&&r.order_id?' · '+r.order_id:''}. Wait for Stellar acknowledgement.`);}catch(e){$('review-error').textContent=e.message;}finally{$('confirm').disabled=false;}});
   $('abort').addEventListener('click',()=>{$('review-dialog').close();confirmation=null;});
   $('filter').addEventListener('input',renderResults);
   $('order-type').addEventListener('change',conditionals);$('tif').addEventListener('change',conditionals);
@@ -370,24 +370,24 @@
   $('explore-contract').onchange=()=>pickExplorer('contract',$('explore-contract').value);
   $('explore-exchange-input').oninput=()=>pickExplorer('exchange',$('explore-exchange-input').value.trim().toUpperCase());
   // Typing narrows the product list; an exact match selects it, and a product
-  // that is not cached yet becomes the one Search TT asks for.
+  // that is not cached yet becomes the one Search Stellar asks for.
   $('explore-product-input').oninput=()=>pickExplorer('product',productOf($('explore-product-input').value));
   $('explore-contract-filter').oninput=()=>{explorer.filter=$('explore-contract-filter').value;renderExplorer(true);};
   async function exploreSearch(){
     const legs=explorer.product.split('|').filter(Boolean);
     if(!legs.length)throw new Error('Type a product first, e.g. CL, BZ or CL|BZ');
-    // TT's own explorer lists `CL|BZ` as a PRODUCT, so that name is asked for
-    // first; then each leg product, in case the venue files them there.
-    const symbols=legs.length>1?[explorer.product,...legs]:legs;
+    // Stellar's Security List Request names ONE symbol: each leg product is
+    // asked for in turn, and a strategy listed under either is found.
+    const symbols=legs;
     searchRequest='pending';
-    // One TT search per leg product: an inter-commodity spread is defined
+    // One Stellar search per leg product: an inter-commodity spread is defined
     // under its legs' products. The later searches APPEND, so the answers to
     // the first are not thrown away when the second is sent.
     for(const [n,symbol] of symbols.entries()){
       const r=await command('search',{exchange:explorer.exchange,security_type:explorer.type,symbol,append:n>0});
       searchRequest=r.request_id;
     }
-    notice(`Asked TT for ${explorer.exchange} ${symbols.join(' + ')} definitions. They arrive over a few seconds.`);
+    notice(`Asked Stellar for ${explorer.exchange} ${symbols.join(' + ')} definitions. They arrive over a few seconds.`);
   }
   $('explore-search').onclick=async()=>{try{await exploreSearch();}catch(e){searchRequest='';notice(e.message,true);$('explore-status').textContent=e.message;}};
   $('explore-product-input').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!explorerMatches().inProduct.length)$('explore-search').click();}};
