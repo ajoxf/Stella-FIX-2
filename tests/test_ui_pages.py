@@ -153,7 +153,7 @@ def test_a_blank_number_is_saved_as_unset_not_as_zero(server):
 
 # -- Exchanges -------------------------------------------------------------
 
-def add_uat_venue(page, name='Orient SGX UAT', password='sup3rsecret'):
+def add_uat_venue(page, name='Orient SGX UAT', password='sup3rsecret'):  # a test placeholder, not a credential
     page.click('#new-venue')
     page.fill('#v-name', name)
     page.click('#lbl-uat input')
