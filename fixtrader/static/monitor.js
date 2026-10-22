@@ -46,7 +46,7 @@ window.TradingMonitor = function (root, opts) {
     return r.json();
   }
 
-  // Throws on a refusal, with the engine's (or TT's) own words.
+  // Throws on a refusal, with the engine's (or Stellar's) own words.
   const command = opts.command || async function (action, contract, args) {
     const r = await fetch('/api/command', { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +113,7 @@ window.TradingMonitor = function (root, opts) {
     const algoOpen = (p.rows || []).filter((r) => r.side).length;
     const manualOpen = (pnl.positions || []).length;
     const brow = document.getElementById('acct-eyebrow');
-    if (brow) brow.textContent = (e.environment || 'TT') + ' · ACCOUNT · TRADING MONITOR' +
+    if (brow) brow.textContent = (e.environment || 'Stellar') + ' · ACCOUNT · TRADING MONITOR' +
       (e.alive === false ? ' · ENGINE OFFLINE' : '');
     q('.n-positions').textContent = algoOpen + manualOpen || '';
     q('.n-orders').textContent = algoWorking().length + manualWorking().length || '';
@@ -132,7 +132,7 @@ window.TradingMonitor = function (root, opts) {
     const cards = [
       ['FIX account (tag 1)', (pnl.account || {}).name || m.account || DASH, ''],
       ['Venue', e.environment || DASH, ''],
-      ['Algo orders go to', ex.mode === 'LIVE' ? 'TT ' + (ex.send_word || 'LIVE')
+      ['Algo orders go to', ex.mode === 'LIVE' ? 'Stellar ' + (ex.send_word || 'LIVE')
         : ex.mode === 'PAPER' ? 'PAPER (nothing sent)' : (ex.mode || DASH),
         ex.mode === 'LIVE' ? 'live' : 'paper'],
       ['Algos trading', String(contracts().filter((c) => c.algo_state === 'PAPER' ||
@@ -145,7 +145,7 @@ window.TradingMonitor = function (root, opts) {
       ['Manual floating (gross)', money(pnl.floating_total), cls(pnl.floating_total)],
       ['Manual realised (gross)', money(pnl.realized_total), cls(pnl.realized_total)],
       ['Margin in use (configured)', money(p.margin), ''],
-      ['TT positions (AN)', ps.status === 'complete' ? 'read from TT'
+      ['Stellar positions (AN)', ps.status === 'complete' ? 'read from Stellar'
         : ps.status ? ps.status.toUpperCase() : 'not asked', ps.status === 'complete' ? 'up' : 'warn'],
       ['Venue balance / equity', 'Unavailable', 'warn'],
     ];
@@ -165,7 +165,7 @@ window.TradingMonitor = function (root, opts) {
       (e.simulated ? 'The simulator has no FIX sessions.' : 'No FIX session reported.') + '</td></tr>';
     html += '</tbody></table>';
     html += '<p class="tiny pad">' + esc(ps.why || '') + ' Balance and equity are not published on these ' +
-      'FIX sessions: they need TT\'s Account/Risk access, and are shown as unavailable rather than as 0.</p>';
+      'FIX sessions: they need Stellar\'s Account/Risk access, and are shown as unavailable rather than as 0.</p>';
     return html;
   }
 
@@ -180,9 +180,9 @@ window.TradingMonitor = function (root, opts) {
       : ' <span class="dn">≠ book</span>');
   }
 
-  /* A close that did NOT happen — refused by TT, or a fill-or-cancel close
+  /* A close that did NOT happen — refused by Stellar, or a fill-or-cancel close
    * that found nothing — while the position is still open. First thing on
-   * the Positions tab, in red, in TT's words. */
+   * the Positions tab, in red, in Stellar's words. */
   function closeAlerts() {
     const out = [];
     contracts().forEach((c) => { if (c.close_alert) out.push(c.close_alert.text); });
@@ -197,7 +197,7 @@ window.TradingMonitor = function (root, opts) {
       '<th class="r">Open P&amp;L</th><th class="r">Net after costs</th><th>Mode</th>' +
       '<th class="r">Slip</th><th class="r">Entry z</th><th class="r">z now</th>' +
       '<th class="r">Break-even</th><th class="r">Target</th><th class="r">Stop</th>' +
-      '<th class="r">Held</th><th>TT says</th><th></th></tr></thead><tbody>';
+      '<th class="r">Held</th><th>Stellar says</th><th></th></tr></thead><tbody>';
     let html = closeAlerts() + head, any = false;
     rows.forEach((r) => {
       any = true;
@@ -270,17 +270,17 @@ window.TradingMonitor = function (root, opts) {
     const p = portfolio(), ex = engine().execution || {};
     const status = ex.positions || {};
     if (!p.venue_readable) {
-      return '<div class="mon-check warn">TT\'s positions have not been read' +
+      return '<div class="mon-check warn">Stellar\'s positions have not been read' +
         (status.why ? ' — ' + esc(status.why) : '') + '. What is shown is this book alone; ' +
         'it is NOT confirmation that the account is flat.' +
-        (ex.positions_waived ? ' Sending to TT ' + (ex.send_word || 'LIVE') + ' was armed on the trader\'s word that this book\'s fills are the record.' : '') +
+        (ex.positions_waived ? ' Sending to Stellar ' + (ex.send_word || 'LIVE') + ' was armed on the trader\'s word that this book\'s fills are the record.' : '') +
         '</div>';
     }
     const rows = (p.rows || []);
     const bad = rows.filter((r) => !r.agrees);
     return '<div class="mon-check ' + (bad.length ? 'bad' : 'good') + '">' + (bad.length
-      ? bad.length + ' contract(s) where TT and this book disagree — see the Reconciler.'
-      : 'TT\'s positions and this book agree on every contract.') + '</div>';
+      ? bad.length + ' contract(s) where Stellar and this book disagree — see the Reconciler.'
+      : 'Stellar\'s positions and this book agree on every contract.') + '</div>';
   }
 
   // -- Working orders -------------------------------------------------------------
@@ -288,7 +288,7 @@ window.TradingMonitor = function (root, opts) {
   function ordersPane() {
     let html = '<table class="mon"><thead><tr><th>Sent</th><th>Contract</th><th>Origin</th>' +
       '<th>Side</th><th>Intent</th><th class="r">Qty / filled</th><th class="r">Price</th>' +
-      '<th>Type</th><th>State</th><th>Closes</th><th>Client ID</th><th>Why / TT says</th>' +
+      '<th>Type</th><th>State</th><th>Closes</th><th>Client ID</th><th>Why / Stellar says</th>' +
       '<th></th></tr></thead><tbody>';
     let any = false;
     algoWorking().forEach(([c, o]) => {
@@ -324,10 +324,10 @@ window.TradingMonitor = function (root, opts) {
 
   // -- Fills ------------------------------------------------------------------------
 
-  function ttTime(v) {
-    // TT's TransactTime (60) is UTC, YYYYMMDD-HH:MM:SS.sss — shown as sent.
+  function venueTime(v) {
+    // Stellar's TransactTime (60) is UTC, YYYYMMDD-HH:MM:SS.sss — shown as sent.
     const m = /^(\d{4})(\d{2})(\d{2})-(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/.exec(v || '');
-    return m ? m[4] + ' <span class="tiny">(TT)</span>' : esc(v || DASH);
+    return m ? m[4] + ' <span class="tiny">(Stellar)</span>' : esc(v || DASH);
   }
 
   function timingRow(label, t, note) {
@@ -340,7 +340,7 @@ window.TradingMonitor = function (root, opts) {
 
   /* A manual CLOSING fill's P&L, against the ticket it closed (close_of):
    * (fill - entry average) x side, in ticks x the tick value x qty — the
-   * instrument's figures as TT defines them NOW (an old ticket may carry
+   * instrument's figures as Stellar defines them NOW (an old ticket may carry
    * figures read before the units were fixed). None where it cannot be
    * priced: a dash, never 0. */
   function manualClosePnl(r) {
@@ -352,7 +352,7 @@ window.TradingMonitor = function (root, opts) {
     const ticket = entry.ticket || {};
     const sid = String(ticket.security_id || r.security_id || '');
     // The desk contract first — the figures the trader set on the Exchanges
-    // page — then the watchlist as TT defines it now. A ticket's own copy
+    // page — then the watchlist as Stellar defines it now. A ticket's own copy
     // was taken when it was sent and may predate a units fix (GC read as a
     // tick of 1, ES as 25): last, never first.
     const desk = contracts().find((c) => String(c.security_id || '') === sid
@@ -367,26 +367,26 @@ window.TradingMonitor = function (root, opts) {
 
   function fillsPane() {
     const j = state.journal;
-    if (!j) return '<p class="empty">Loading the TT fills…</p>';
+    if (!j) return '<p class="empty">Loading the Stellar fills…</p>';
     const tm = j.timings || {};
     let html = '<table class="mon timing"><thead><tr><th>What</th><th class="r">Value</th></tr></thead><tbody>' +
-      timingRow('order sent → first TT fill (MARKET)', tm.MARKET) +
-      timingRow('order sent → first TT fill (LIMIT)', tm.LIMIT, 'includes the time it rested') +
+      timingRow('order sent → first Stellar fill (MARKET)', tm.MARKET) +
+      timingRow('order sent → first Stellar fill (LIMIT)', tm.LIMIT, 'includes the time it rested') +
       '</tbody></table>';
     html += '<div class="mon-tools">' +
       '<label class="check"><input type="checkbox" class="ours-only"' + (state.oursOnly ? ' checked' : '') + '> ours only</label>' +
       '<label class="check"><input type="checkbox" class="show-paper"' + (state.showPaper ? ' checked' : '') + '> include PAPER</label>' +
-      '<a class="btn-link" href="/api/tt_fills.csv" download>Export CSV</a>' +
+      '<a class="btn-link" href="/api/venue_fills.csv" download>Export CSV</a>' +
       '<a class="btn-link" href="/api/slippage.csv" download>Slippage CSV</a>' +
-      '<span class="tiny">Read from TT\'s own execution reports on the Order Routing session — so it carries ' +
+      '<span class="tiny">Read from Stellar\'s own execution reports on the Order Routing session — so it carries ' +
       'fills of orders this system did not send too, marked as not ours. Display only: the book is built from OUR fills.</span></div>';
-    let rows = (j.tt_fills || []).map((f) => Object.assign({ tt: true }, f));
+    let rows = (j.venue_fills || []).map((f) => Object.assign({ tt: true }, f));
     if (state.showPaper) {
       (j.fills || []).filter((f) => String(f.exec_id || '').startsWith('PAPER-')).forEach((f) => rows.push({
-        tt: false, tt_time: '', received: f.our_ts, account: DASH, name: nameOf(f.contract_key),
+        tt: false, venue_time: '', received: f.our_ts, account: DASH, name: nameOf(f.contract_key),
         decimals: decimalsOf(f.contract_key), security_id: '', side: f.side, open_close: '',
         qty: f.qty, price: f.price, exec_id: f.exec_id, clordid: f.clordid, order_id: '',
-        ours: 'PAPER', text: 'filled here at the live bid/offer — nothing sent to TT', pnl: null }));
+        ours: 'PAPER', text: 'filled here at the live bid/offer — nothing sent to Stellar', pnl: null }));
       rows.sort((a, b) => String(b.received || '').localeCompare(String(a.received || '')));
     }
     rows.forEach((r) => { if (r.ours === 'MANUAL' && !has(r.pnl)) r.pnl = manualClosePnl(r); });
@@ -400,15 +400,15 @@ window.TradingMonitor = function (root, opts) {
       '<span>' + rows.filter((r) => r.ours).length + ' ours</span>' +
       '<span>account ' + esc(j.account || DASH) + '</span>' +
       '<span>closing fills\' P&amp;L <b class="' + cls(pnl) + '">' + (pnls.length ? money(pnl) : DASH) + '</b></span></div>';
-    html += '<table class="mon fills"><thead><tr><th>TT time (60)</th><th>Account (1)</th><th>Contract</th>' +
+    html += '<table class="mon fills"><thead><tr><th>Stellar time (60)</th><th>Account (1)</th><th>Contract</th>' +
       '<th>Security ID (48)</th><th>Side (54)</th><th>In/Out (77)</th><th class="r">Qty (32)</th>' +
       '<th class="r">Price (31)</th><th class="r">Cum / leaves</th><th class="r">P&amp;L</th>' +
-      '<th>TT order (37)</th><th>Exec ID (17)</th><th>ClOrdID (11)</th><th>Ours</th><th>Text (58)</th>' +
+      '<th>Stellar order (37)</th><th>Exec ID (17)</th><th>ClOrdID (11)</th><th>Ours</th><th>Text (58)</th>' +
       '</tr></thead><tbody>';
     rows.slice(0, 400).forEach((r) => {
       const d = has(r.decimals) ? r.decimals : null;
       html += '<tr class="' + (r.ours ? '' : 'foreign') + (r.tt ? '' : ' paperrow') + '">' +
-        '<td>' + (r.tt ? ttTime(r.tt_time) : esc(clock(r.received)) + ' <span class="tiny">(here)</span>') + '</td>' +
+        '<td>' + (r.tt ? venueTime(r.venue_time) : esc(clock(r.received)) + ' <span class="tiny">(here)</span>') + '</td>' +
         '<td>' + esc(r.account || DASH) + '</td>' +
         '<td><b>' + esc(r.name || r.symbol || DASH) + '</b></td>' +
         '<td class="mono">' + esc(r.security_id || DASH) + '</td>' +
@@ -427,7 +427,7 @@ window.TradingMonitor = function (root, opts) {
     });
     if (state.journalError) html += '<tr><td colspan="15" class="empty dn">The fills could not be read: ' +
       esc(state.journalError) + ' — this is not "no fills".</td></tr>';
-    else if (!rows.length) html += '<tr><td colspan="15" class="empty">No fills from TT yet.' +
+    else if (!rows.length) html += '<tr><td colspan="15" class="empty">No fills from Stellar yet.' +
       (engine().paper ? ' The Algo is on PAPER, so it has sent nothing — tick “include PAPER” to see its paper fills.' : '') + '</td></tr>';
     return html + '</tbody></table>';
   }
@@ -561,19 +561,19 @@ window.TradingMonitor = function (root, opts) {
 
   function reconcilePane() {
     const p = portfolio(), ex = engine().execution || {}, st = ex.positions || {};
-    let html = '<div class="mon-check ' + (st.status === 'complete' ? 'good' : 'warn') + '">TT positions: <b>' +
+    let html = '<div class="mon-check ' + (st.status === 'complete' ? 'good' : 'warn') + '">Stellar positions: <b>' +
       esc(st.status || 'not asked') + '</b>' + (st.why ? ' — ' + esc(st.why) : '') +
-      (ex.positions_waived ? ' · sending to TT ' + (ex.send_word || 'LIVE') + ' armed on the trader\'s word that this book\'s fills are the record' : '') +
+      (ex.positions_waived ? ' · sending to Stellar ' + (ex.send_word || 'LIVE') + ' armed on the trader\'s word that this book\'s fills are the record' : '') +
       ' · book ' + (engine().book_complete ? 'complete' : '<span class="warn">recovering</span>') + '</div>';
     html += recoveryCheck();
-    html += '<table class="mon"><thead><tr><th>Contract</th><th>This book</th><th>TT says</th>' +
-      '<th>Long at TT</th><th>Short at TT</th><th>Verdict</th></tr></thead><tbody>';
+    html += '<table class="mon"><thead><tr><th>Contract</th><th>This book</th><th>Stellar says</th>' +
+      '<th>Long at Stellar</th><th>Short at Stellar</th><th>Verdict</th></tr></thead><tbody>';
     contracts().forEach((c) => {
       const r = (p.rows || []).find((x) => x.key === c.key);
       const book = r && r.side ? (r.side === 'BUY' ? '+' : '-') + qty(r.qty) : 'flat';
       let verdict;
-      if (!p.venue_readable) verdict = '<span class="warn">TT not read — unknown, not flat</span>';
-      else if (r && r.both_sides_open) verdict = '<span class="dn">LONG AND SHORT at TT — a close that went out as an open</span>';
+      if (!p.venue_readable) verdict = '<span class="warn">Stellar not read — unknown, not flat</span>';
+      else if (r && r.both_sides_open) verdict = '<span class="dn">LONG AND SHORT at Stellar — a close that went out as an open</span>';
       else if (!r || r.agrees || (!r.side && !has(r.venue_qty))) verdict = '<span class="up">agree</span>';
       else verdict = '<span class="dn">DISAGREE — never auto-closed; a person decides</span>';
       html += '<tr class="' + (verdict.includes('dn') ? 'disagrees' : '') + '"><td><b>' + esc(c.name) +
@@ -582,27 +582,28 @@ window.TradingMonitor = function (root, opts) {
         '</td><td>' + verdict + '</td></tr>';
     });
     (engine().unclaimed || []).forEach((u) => {
-      html += '<tr class="disagrees"><td colspan="6">At TT and not in this book: ' + esc(JSON.stringify(u)) + '</td></tr>';
+      html += '<tr class="disagrees"><td colspan="6">At Stellar and not in this book: ' + esc(JSON.stringify(u)) + '</td></tr>';
     });
     return html + '</tbody></table>';
   }
 
-  /* TT FIX Recovery: what Order Routing missed while the line was down,
-   * replayed after each logon and applied once. */
+  /* After each Order Router logon: Stellar resends what was missed (the
+   * session keeps its sequence numbers), and every order of ours still
+   * recorded as working is asked about (Order Status Request, 35=H). */
   function recoveryCheck() {
     const r = engine().fix_recovery;
     if (!r) return '';
     const tone = { DONE: 'good', RUNNING: 'warn', NOT_RUN: 'warn' }[r.state] || 'bad';
     const word = { DONE: 'done', RUNNING: 'running…', NOT_RUN: 'not run yet', OFF: 'not set up',
-                   REFUSED: 'REFUSED by TT', FAILED: 'FAILED' }[r.state] || r.state;
-    const mode = r.mode === 'WINDOW' ? 'time window' : r.mode === 'RECONCILE' ? 'missed messages' : '';
-    return '<div class="mon-check ' + tone + '">TT FIX Recovery: <b>' + esc(word) + '</b>' +
+                   REFUSED: 'REFUSED by Stellar', FAILED: 'FAILED' }[r.state] || r.state;
+    const mode = '';
+    return '<div class="mon-check ' + tone + '">Order status sweep: <b>' + esc(word) + '</b>' +
       (mode ? ' (' + mode + ')' : '') + ' — ' + esc(r.text || '') +
       (r.finished ? ' · ' + stamp(r.finished) : r.started ? ' · since ' + stamp(r.started) : '') +
       (r.note ? '<br><span class="warn">' + esc(r.note) + '</span>' : '') +
-      (r.last_heard ? '<br><span class="tiny">Last heard from Order Routing ' + stamp(r.last_heard) + '</span>' : '') +
+      (r.last_heard ? '<br><span class="tiny">Last heard from the Order Router ' + stamp(r.last_heard) + '</span>' : '') +
       ' <button class="btn recover-now" type="button"' + (r.state === 'RUNNING' ? ' disabled' : '') +
-      '>Recover now</button></div>';
+      '>Ask Stellar now</button></div>';
   }
 
   // -- render --------------------------------------------------------------------------------------
@@ -611,13 +612,14 @@ window.TradingMonitor = function (root, opts) {
     positions: 'Marked at the touch each position would actually CLOSE at — the bid for a long, the offer ' +
       'for a short. Net after costs takes the whole round trip off, so a position shows a loss the instant ' +
       'it opens. Close sends a closing order by the position\'s own tickets (77=C) and stands that contract\'s Algo down.',
-    orders: 'cancel is a REQUEST: an order stays working until TT says it is cancelled, and it can fill in between.',
-    fills: 'Each row is a TT Execution Report (35=8) carrying a fill. P&L is shown on a closing fill of ours — the Algo\'s against the position it closed, a manual one against the ticket it closed — before fees. Sending is not a fill.',
-    accounts: 'The account this desk trades, the FIX sessions it trades over, and the P&L by origin. A figure TT does not publish here is said, never shown as 0.',
+    orders: 'cancel is a REQUEST: an order stays working until Stellar says it is cancelled, and it can fill in between.',
+    fills: 'Each row is a Stellar Execution Report (35=8) carrying a fill. P&L is shown on a closing fill of ours — the Algo\'s against the position it closed, a manual one against the ticket it closed — before fees. Sending is not a fill.',
+    accounts: 'The account this desk trades, the FIX sessions it trades over, and the P&L by origin. A figure Stellar does not publish here is said, never shown as 0.',
     analysis: 'Built from what is recorded: the Algo\'s closed positions and the manual ticket\'s closed trades. Net is after the configured round trip; a figure nobody measured is a dash, never 0.',
     slippage: 'Measured against the price each decision was made at. Positive is a cost at both ends; negative an improvement.',
-    reconcile: 'TT\'s own positions against this book. A difference is SHOWN, never smoothed and never closed automatically. ' +
-      'After each logon TT FIX Recovery replays what Order Routing missed; a fill already booked is never booked again.',
+    reconcile: 'Stellar\'s own positions against this book. A difference is SHOWN, never smoothed and never closed automatically. ' +
+      'Stellar\'s Order Router provides no positions: this book\'s own fills are the record. After each logon Stellar resends what ' +
+      'the Order Router missed and is asked for the status of every order of ours still working; a fill already booked is never booked again.',
   };
 
   function render() {
@@ -680,7 +682,7 @@ window.TradingMonitor = function (root, opts) {
     if (e.target.closest('.recover-now')) {
       try {
         const r = await command('recover_missed', '', {});
-        say(r.text || 'FIX Recovery started.');
+        say(r.text || 'Order status sweep started.');
       } catch (err) { say(err.message, true); }
       return;
     }
@@ -696,8 +698,8 @@ window.TradingMonitor = function (root, opts) {
         if (ok) { await command('close_now', close.dataset.key); say('Close sent for ' + close.dataset.name + '.'); }
       } else if (algo) {
         const ok = await ask('Cancel the Algo\'s orders on ' + algo.dataset.name + '?',
-          'A cancel request goes to TT for every working order of ours on this contract. They stay ' +
-          'working until TT confirms.', 'Request cancel');
+          'A cancel request goes to Stellar for every working order of ours on this contract. They stay ' +
+          'working until Stellar confirms.', 'Request cancel');
         if (ok) { await command('cancel_all', algo.dataset.key); say('Cancel requested.'); }
       } else if (closeMan) {
         const review = await command('terminal_preview_close', '', { order_id: closeMan.dataset.id });
@@ -711,7 +713,7 @@ window.TradingMonitor = function (root, opts) {
         }
       } else if (man) {
         const ok = await ask('Cancel manual order ' + man.dataset.id + '?',
-          'It remains working until TT confirms the cancellation.', 'Request cancel');
+          'It remains working until Stellar confirms the cancellation.', 'Request cancel');
         if (ok) { await command('terminal_cancel', '', { order_id: man.dataset.id }); say('Cancel requested.'); }
       }
     } catch (err) { say(err.message, true); }

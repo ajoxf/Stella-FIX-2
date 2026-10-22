@@ -1,8 +1,12 @@
-# Working on FIX-Trader
+# Working on FIX-Trader (Stellar)
 
 Read **`BUILD_PROMPT.md`** first — it is the specification. **`docs/screens.html`**
 is the layout reference: where the two disagree about what a screen looks like,
-the drawing wins.
+the drawing wins. This is the TT desk (`ajoxf/FIX-Trader`) connected to
+**Stellar** instead: the venue's two specifications — the Stellar FIX Order
+Router Specification and the Stellar FIX Market Data Feed Specification —
+decide everything on the wire, and `docs/STELLAR_CONNECTION.md` says how each
+of their rules is met.
 
 ## Hard rules
 
@@ -14,12 +18,14 @@ the drawing wins.
 - **Price is the spread's own price, from the MID OF THE BOOK.** Never the last
   trade. A trigger reads the executable side for its own direction; an open
   position reads the **opposite** side to close.
-- **Prices are the prices a trader knows, never TT's FIX units.** TT sends
-  Crude as 9057; its DisplayFactor (9787) makes it 90.57. The conversion is
-  made ONCE, at the FIX boundary (`ManualTerminal.to_display` / `to_fix`):
-  270/31/6/44 in, 44/99 out, manual and Algo alike. A contract whose factor
-  is unknown records nothing and enters nothing; a recording in the old
-  units is rescaled once (`price_units`), never mixed with the new.
+- **Prices are the prices a trader knows** — and Stellar sends them that way
+  (a JGB as 150.25): there is no display factor. The one place a price
+  crosses the FIX boundary (`ManualTerminal.to_display` / `to_fix`: 270/31/44
+  in, 44/99 out, manual and Algo alike) is kept, at a factor of 1, so it
+  stays one place. The tick is MinPriceIncrement (969), its money
+  MinPriceIncrementAmount (1146). A contract the Market Data session does not
+  know records nothing and enters nothing; a recording in other units is
+  rescaled once (`price_units`), never mixed with the new.
 - **One conversion, in `sizing.py`**: `money = points × tick_value / tick_size
   × qty`. Every money figure on the screen goes through it.
 - **`gateway.py` is the only module that may import a FIX library.**
@@ -27,14 +33,21 @@ the drawing wins.
   a toast or a log line. A password is reported as set or not set, never
   returned, not even masked.
 - **Cancel our own working orders at startup AND at shutdown**, scoped to our
-  `ClOrdID` prefix. Never touch an order this system did not send.
+  `ClOrdID` prefix. Never touch an order this system did not send. Stellar
+  cancels by its OrderID (37), so the OrderID of every order of ours is kept
+  (the terminal's `algo_ids`) and an order whose OrderID was never heard is
+  SAID to be uncancellable from here, never assumed gone.
 - **The book is persisted and recovered.** The reconciler auto-closes nothing
   until recovery says the book is complete, and never touches a position it
   cannot explain.
 - **A close is never a bare opposite order.** It carries an explicit
   `PositionEffect`, the position it closes and that position's venue tickets,
   and it is capped at what is open on that side. `reduce_only` is a CAP, not
-  an instruction — sent as well as the flag, never instead of it. On a venue
+  an instruction — sent as well as the flag, never instead of it. On
+  Stellar the flag is 77=C (not in Stellar's spec: sent on every order, and
+  switched off on the venue only if Stellar refuses it) and the position and
+  its tickets go in the ExchangeText party (452=1002) — Stellar's orders have
+  no Text (58). On a venue
   that keeps long and short apart, an opposite order flagged OPEN opens the
   other side: the desk is long AND short, both posting margin, and a netting
   screen calls it flat. An unknown flag degrades to CLOSE, never to OPEN.
@@ -102,16 +115,18 @@ the drawing wins.
   a LIMIT).
 - **A contract without prices says WHY** (`ManualTerminal.feed_status`,
   `Engine.md_status`, on the ladder footer, the Algo window and the
-  Instruments watchlist): REFUSED by TT (35=Y with 281 in words, a 35=3
-  naming V — market-data permission: Orient / TT), NO ANSWER after
-  `FEED_ANSWER_SEC` (a Security ID TT does not know), EMPTY (TT answered,
-  nobody quotes it — a quiet UAT market, not a fault), or LIVE. An empty
-  snapshot is an answer.
-- **The ladder shows the order book TT sends**: Depth TOP (264=1, the
+  Instruments watchlist): REFUSED by Stellar (35=Y with 281 in words, a 35=3
+  naming V — market-data permission: ask Stellar), NO ANSWER after
+  `FEED_ANSWER_SEC` (a Security ID Stellar does not know), EMPTY (Stellar
+  answered, nobody quotes it — a quiet UAT market, not a fault), or LIVE —
+  with Stellar's Security Status (f, 326) beside it when the instrument is
+  not open. An empty snapshot is an answer.
+- **The ladder shows the order book Stellar sends**: Depth TOP (264=1, the
   touch) or FULL (264=0, every level, `FixGateway.depth`, best first) —
   switched per contract from the ladder (`Engine.set_depth`), each size at
-  its own price, the touch in bold. No book to read (the simulator, Market
-  Data down) is None, never an empty book.
+  its own price, the touch in bold. Levels are positional (MDEntryPositionNo
+  290), applied against the book as it stood before the message. No book to
+  read (the simulator, Market Data down) is None, never an empty book.
 - **Close @ LMT rests ONE closing limit at the trader's price**, by the
   position's tickets (77=C), PINNED: never re-pegged, never timed out. It
   stands the Algo down (its exits would be a second close). On PAPER it
@@ -122,28 +137,31 @@ the drawing wins.
   Orders, Fills, Slippage, Accounts, Reconciler, Analysis — ONE renderer
   (`static/monitor.js`) mounted twice: the desk's Trading Monitor window
   (fed the desk's snapshot) and the Account tab (polling for itself). Its Fills tab is the
-  TT FILLS TAPE — every execution report with a fill on the Order Routing
-  session, ours or not, in TT's own tags (60, 1, 48, 54, 77, 32, 31, 37, 17,
-  11, 58), kept in `tt_fills`. Display only: the book is built from OUR
+  STELLAR FILLS TAPE — every execution report with a trade on the Order
+  Router session, ours or not, in Stellar's own tags (60, the 452=24 account,
+  55/200, 54, 32, 31, 37, 17, 527 trade id, 58), kept in `venue_fills`. Display only: the book is built from OUR
   fills (`_execution`), never from the tape.
 - **CLOSE NOW stands that contract's algo down.** The z that put the position
   on has not moved, so an algo left armed re-enters on the next pass — a
   tenth of a second after the trader pressed the button to get out.
-- **Order tests run on TT UAT from the screen** (`/order-tests`,
+- **Order tests run on Stellar UAT from the screen** (`/order-tests`,
   `fixtrader/uat.py`): every manual and Algo order path — rest, replace,
   cancel, MARKET, marketable LIMIT, hit at the touch, Close @ LMT, CLOSE ALL
-  escalation, a refusal in TT's words — through the SAME commands the ladder
+  escalation, a refusal in Stellar's words — through the SAME commands the ladder
   and the Algo window send, never a side door. Refused on any venue but UAT;
   each test cleans up by ticket, pass or fail. `tests/test_uat_orders.py`
-  proves them against `tests/fake_tt.py` (real web app, engine loop and FIX
-  sessions). A new order path gets a scenario here.
+  proves them against `tests/fake_stellar.py` (real web app, engine loop and FIX
+  sessions — a fake Stellar that speaks its dialect). A new order path gets a
+  scenario here.
   The page is three steps — pick a contract, Check automatically (four
   groups: Manual / Algo × Market / Limit, each flow keeping its newest
   result; a quiet, unmoving UAT price never blocks a check), Try it yourself — the last embedding the desk's ladder, Algo
   window and Trading Monitor for the contract: with the Algo switch on UAT
   the ladder makes the Algo send its order now (`Engine.uat_order`) and its
   TP / SL manage the result. Keep it that simple.
-- **UAT and PROD are separate venues** and the screen always says which.
+- **UAT and PROD are separate venues** and the screen always says which. The
+  Stellar adapter refuses a PROD venue until it has been proven on Stellar
+  UAT, as the TT adapter did.
 
 ## Conventions that are easy to lose in a refactor
 
@@ -168,16 +186,16 @@ the drawing wins.
   (`market_limit_ticks`, default 2; 0 = a true market order): a buy at the
   offer + N ticks, a sell at the bid - N, 59=3 — manual tickets
   (`ManualTerminal._marketable`) and the Algo (`Executor.place`,
-  `through_price`) alike. CME via TT gives a bare market order its own
-  protection price and REJECTS it outside the price band ("Bid of 7941.25
+  `through_price`) alike. An exchange that gives a bare market order its own
+  protection price (CME) REJECTS it outside the price band ("Bid of 7941.25
   violates High Band 7872.00") — a close that never happens. With no fresh
   quote or no tick it stays a true market order: a close is never withheld
   for want of a price. The IOC is never re-pegged.
-- **A close that did not happen is said loudly** — refused by TT, or an IOC
+- **A close that did not happen is said loudly** — refused by Stellar, or an IOC
   close that found nothing — while the position is still open: the Algo's
   in `close_alert` (engine), a manual ticket's in `close_alerts`
   (ManualTerminal, computed from the orders, never stale), in red on the
-  ladder and first on the Trading Monitor's Positions tab, in TT's words,
+  ladder and first on the Trading Monitor's Positions tab, in Stellar's words,
   until a later close fills or the position is flat.
 - **A guard may withhold an ORDER. A guard must never prevent a close** — and
   nothing withholds the escalation to market on an exit.
@@ -231,22 +249,29 @@ the drawing wins.
 - **Levels are from BREAK-EVEN and frozen at entry**: the target is
   `profit_target_pct` % of the margin the trader ENTERS (or `atr_target_mult`
   x the ATR at entry), the stop loss `stop_loss_pct` % (or `atr_stop_mult` x
-  ATR), ON by default. TT reports no margin: `margin_per_contract` wins over
+  ATR), ON by default. Stellar reports no margin: `margin_per_contract` wins over
   the venue's, and with neither the levels cannot be priced and nothing
   enters — the window says so. It is never read as zero. The z stop, the
   mean exit (in profit only) and the time stop are OFF until a contract asks.
 - **A checkbox shows what is IN FORCE, and Save writes it only if it was
   changed.** A box drawn unticked for a desk default of ON wrote OFF on the
   next Save — a stop loss switched off by saving a different field.
-- **The Algo's orders go to TT over Order Routing** (`AlgoOrderRouter` in
-  `gateway.py`): New Order Single / Cancel / Cancel-Replace with an `FT-`
-  ClOrdID, the venue's account (tag 1), 77=O or 77=C (an unknown effect is a
-  CLOSE), 1028=N (automated), TT cancel-on-disconnect (18=o 2), and a close's
-  position and tickets in 58. Execution reports, cancel rejects (9) and
-  business rejects (j) for OUR ids become `GatewayEvent`s with a snapshot of
-  the order; a repeated ExecID is not a second fill; a manual ticket's
-  `FTM-` reports are never read as the Algo's. Only `FTM-` and `FT-` orders
-  can leave the session at all.
+- **The Algo's orders go to Stellar over the Order Router**
+  (`AlgoOrderRouter` in `gateway.py`): New Order Single (D) for an outright,
+  New Order Multi-leg (AB) for a listed strategy, Cancel (F), Cancel/Replace
+  (G / AC) by Stellar's OrderID (37), with an `FT-` ClOrdID. The instrument
+  is named as Stellar's Security List names it — symbol (55), CFI (461), 167,
+  maturity (200), exchange (207), and a strategy's legs (555) and subtype
+  (762) — never by Security ID, and an order waits for that entry to arrive.
+  The Parties group carries the Stellar User Name (452=11) and Account
+  (452=24) on every order — there is no tag 1 — plus 452=1000 and the MiFID
+  codes (29, 1724, 452=3/12/122 qualified 22 for the Algo) when set on the
+  venue; 77=O or 77=C (an unknown effect is a CLOSE); a close's position and
+  tickets in 452=1002. Execution reports and cancel rejects (9) for OUR
+  orders become `GatewayEvent`s with a snapshot of the order — a trade, which
+  Stellar sends WITHOUT a ClOrdID, by its OrderID; a repeated ExecID is not a
+  second fill; a manual ticket's `FTM-` reports are never read as the Algo's.
+  Only `FTM-` and `FT-` orders can leave the session at all.
 - **PAPER until a person arms LIVE, every session** (`Engine.set_execution`).
   A live venue comes back on PAPER after every restart; LIVE needs
   `confirm` every time, with the engine's own text (venue, account,
@@ -254,57 +279,51 @@ the drawing wins.
   working — a position at the venue does not become a paper one by a
   setting. PAPER fills at the live bid/offer with `PAPER-n` tickets and
   sends nothing.
-- **The FIX session RECOVERS, as TT's certification expects**
-  (`NativeFixSession`): a gap sends a ResendRequest (2) and holds what came
-  ahead of it until the gap is filled, so messages are applied in TT's
-  order; TT's ResendRequest is answered with a SequenceReset-GapFill — our
-  orders are NEVER resent; a SequenceReset moves the expected number; a
-  session Reject (3) never stops the session; a resent duplicate (43=Y) is
-  not applied twice; TT's News (B) records that its recovery is complete;
-  a quiet line gets a TestRequest before it is given up. Only a number
-  already used and not marked as a resend stops it.
-  TT sends News (B) "Recovery is complete" after every logon and asks
-  clients to wait for it: price requests, definition requests, the
-  positions request, the startup sweep and NEW orders wait for it
-  (`NativeFixSession.ready`, a 5 s fallback if TT never says) — a CLOSE
-  (77=C) never waits. ClOrdID (11) is at most 20 characters (TT): FTM- +
-  16 hex for manual tickets, FT-<ms hex>-<base 36> for the Algo.
-- **What Order Routing missed is RECOVERED from TT** (`FixRecoverySession`,
-  `FixGateway.recover_missed`): after each logon — once the previous run's
-  orders are adopted — a non-persistent TT FIX Recovery connection on the
-  SAME login (its own address: 11508 / 11708 through stunnel, derived from
-  the order-entry endpoint or set on the Exchanges page) sends ONE Recovery
-  Request (U2): 18002=Y (what TT has not delivered since its weekly reset,
-  Sat 22:00 UTC), or 916/917 from when Order Routing was last heard if that
-  is before the reset — never both (TT refuses). The 8s and 9s it replays go
-  through the Order Routing handlers: a fill already booked is never booked
-  again (`Database.has_fill`, the manual fills table, the router's ids), an
-  order is never moved back from a final state, and CumQty only grows. TT
-  ends it with a Logout "Recovery completed"; a refusal (j naming U2) or no
-  answer in `RECOVERY_TIMEOUT_SEC` is said in TT's words on the Reconciler
-  tab, never read as done. Algo ENTRIES wait while it runs; exits never do.
-  Beyond TT's 720 hours, or a Trade Capture Report (AE), Recovery cannot
-  reach: said, with the statement as the remedy.
+- **The FIX session RECOVERS** (`NativeFixSession`): a gap on the Order
+  Router sends a ResendRequest (2) and holds what came ahead of it until the
+  gap is filled, so messages are applied in Stellar's order; Stellar's
+  ResendRequest is answered with a SequenceReset-GapFill — our orders are
+  NEVER resent; a SequenceReset moves the expected number; a session Reject
+  (3) never stops the session; a resent duplicate (43=Y) is not applied
+  twice; a quiet line gets a TestRequest before it is given up. Only a
+  number already used and not marked as a resend stops it. After a logon
+  that opened a gap, NEW orders and status requests wait for the resend
+  (`NativeFixSession.ready`, a 5 s fallback, said) — a CLOSE (77=C) never
+  waits. Market Data is not resent by Stellar: it resets on every logon and
+  a gap there asks for every book again. ClOrdID (11) is at most 32
+  characters (Stellar): FTM- + 16 hex for manual tickets,
+  FT-<ms hex>-<base 36> for the Algo.
+- **What the Order Router missed is RECOVERED from Stellar**: the Order
+  Router KEEPS its sequence numbers across restarts (`SequenceStore`; the
+  outgoing number written before each message goes), so Stellar resends at
+  the next logon what was sent while the program was down. Then, after each
+  logon — once the previous run's orders are adopted — every order of ours
+  still recorded as working is asked about with an Order Status Request (H)
+  (`FixGateway.recover_missed`, the order status sweep): a cancel or reject
+  is applied, a CumQty this book never saw a trade for is SAID and never
+  booked without a price, and no answer in `RECOVERY_TIMEOUT_SEC` is FAILED,
+  naming the orders, never read as done. A fill already booked is never booked
+  again (`Database.has_fill`, the manual fills table, the router's ExecIDs);
+  an order is never moved back from a final state. Algo ENTRIES wait while it
+  runs; exits never do. **Reset sequence numbers** (Connection page) is for
+  when Stellar has reset its side, and only then.
 - **What an Execution Report IS is decided before anything is booked**
-  (`tt_exec.kind`, both books): an exchange-listed spread's fill comes as
-  the spread (442=3 or 1) AND one report per LEG (442=2) at the leg's price
-  — only the spread is booked; a trade bust or correction (20=1/2, 150=H/G)
-  is SAID, never booked as a new fill; a status (20=3, 150=I/D) is not a
-  fill. A fill is known by TT's UniqueExecID (16612), or 17 with TT's
-  TradeDate (75) — never a date that depends on an optional tag. A reject
-  says OrdRejReason (103) in words.
-- **TT FIX Order Routing does not support Request For Positions (AN)** —
-  it is not among its messages, and TT asks clients to send nothing it does
-  not list. `AlgoOrderRouter.ASK_POSITIONS` is off: positions are unknown,
-  with the reason, until a TT Drop Copy session provides them.
-- **TT positions: asked for, never assumed.** A Request For Positions (AN)
-  goes at each logon. Answered (AO/AP), `positions()` is the account and the
-  book reconciles; refused (j, or a 35=3 naming AN — which must NOT stop the
-  session) or unanswered in `POSITIONS_TIMEOUT_SEC`, it is None — unknown,
-  never flat. LIVE on unknown positions is the trader's explicit word that
-  this book's fills are the record (`positions_waived`), said in a banner
-  for as long as it holds; without that word automatic trading on a live
-  venue is refused.
+  (`stellar_exec.kind`, both books): a strategy's trade comes as the strategy
+  (442=3) AND one report per LEG (442=2) at the leg's price, with the same
+  OrderID — only the strategy is booked; a trade cancel or correct (150=H/G,
+  with the 527 of the trade it changes) is SAID, never booked as a new fill;
+  an order status (150=I), a hold (9) or an unhold (D) is not a fill. A trade
+  is 150=F; it carries no ClOrdID, AvgPx 0 and an unreliable CumQty and
+  OrdStatus, so the filled quantity, average and state are this program's
+  own sums of LastQty / LastPx. A fill is known by Stellar's ExecID (17). A
+  reject says OrdRejReason (103) in words beside Stellar's text.
+- **Stellar positions: never assumed.** Stellar's Order Router lists no
+  positions request, so none is sent: `positions()` is None — unknown, never
+  flat — with the reason. LIVE on unknown positions is the trader's explicit
+  word that this book's fills are the record (`positions_waived`), said in a
+  banner for as long as it holds; without that word automatic trading on a
+  live venue is refused.
+
 - **Startup sweep, once the session is up**: orders of ours (`FT-`) a
   previous run left recorded as working are adopted — so a fill for one is
   applied as what it was — and cancelled. Nothing else at the venue is

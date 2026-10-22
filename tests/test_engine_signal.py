@@ -14,7 +14,7 @@ from tests.conftest import ALGO_TEST_SETTINGS, book_at_z, fill_candles
 
 
 class PaperGateway(FakeGateway):
-    """Quotes like a venue, but — like TT today — cannot take an algo order,
+    """Quotes like a venue, but — like Stellar today — cannot take an algo order,
     and reports no margin. Any order reaching it is a test failure."""
     connection_only = True
 
@@ -135,7 +135,7 @@ def test_a_side_that_comes_back_too_far_disarms(tmp_path):
 # -- paper ----------------------------------------------------------------------
 
 def test_a_gateway_that_cannot_trade_is_traded_on_PAPER(tmp_path):
-    """TT: the market is live, the order path is not. Filled at the live BID
+    """Stellar: the market is live, the order path is not. Filled at the live BID
     for a sale, never the mid — and not one order reaches the venue."""
     engine, gw, db = build(tmp_path, PaperGateway, confirm_samples=1)
     assert engine.paper is True

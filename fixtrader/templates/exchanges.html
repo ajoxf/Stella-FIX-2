@@ -26,7 +26,7 @@
     <h5><span id="venue-form-title">Venue</span></h5>
     <div class="cb">
       <label class="f"><span>Name</span>
-        <input type="text" id="v-name" placeholder="Orient SGX UAT"></label>
+        <input type="text" id="v-name" placeholder="Stellar UAT"></label>
 
       <label class="f"><span>Environment
           <small>PROD is never a default — it is chosen</small></span>
@@ -36,52 +36,64 @@
         </span></label>
 
       <label class="f"><span>Broker</span>
-        <input type="text" id="v-broker" placeholder="Orient Futures"></label>
-      <label class="f"><span>FIX version</span>
+        <input type="text" id="v-broker" placeholder="Stellar"></label>
+      <label class="f"><span>FIX version <small>Stellar speaks FIX 4.4</small></span>
         <select id="v-fix_version">
           <option value="FIX.4.4">FIX.4.4</option>
-          <option value="FIX.4.2">FIX.4.2</option>
-          <option value="FIXT.1.1">FIXT.1.1 / FIX50SP2</option>
         </select></label>
-      <label class="f"><span>Order entry host</span>
-        <input type="text" id="v-host" placeholder="uat-fix.example"></label>
+      <label class="f"><span>Order Router host</span>
+        <input type="text" id="v-host" placeholder="stellar-uat.example"></label>
       <label class="f"><span>Port</span>
         <input type="number" id="v-port" placeholder="9823"></label>
-      <label class="f"><span>Market data host
-          <small>blank = the same session</small></span>
-        <input type="text" id="v-md_host" placeholder="same session"></label>
-      <label class="f"><span>Market data port</span>
-        <input type="number" id="v-md_port" placeholder="same"></label>
-      <label class="f"><span>FIX Recovery host
-          <small>blank = beside order entry (TT: 11502 → 11508, 11702 → 11708)</small></span>
-        <input type="text" id="v-recovery_host" placeholder="derived"></label>
-      <label class="f"><span>FIX Recovery port</span>
-        <input type="number" id="v-recovery_port" placeholder="derived"></label>
-      <label class="f"><span>SenderCompID</span>
-        <input type="text" id="v-sender_comp_id"></label>
+      <label class="f"><span>Market Data host
+          <small>Stellar's Market Data feed is a session of its own</small></span>
+        <input type="text" id="v-md_host" placeholder="stellar-uat-md.example"></label>
+      <label class="f"><span>Market Data port</span>
+        <input type="number" id="v-md_port" placeholder="port"></label>
+      <label class="f"><span>SenderCompID <small>Order Router</small></span>
+        <input type="text" id="v-sender_comp_id" placeholder="STELLAR_UAT"></label>
+      <label class="f"><span>SenderCompID <small>Market Data</small></span>
+        <input type="text" id="v-md_sender_comp_id" placeholder="STELLAR_UAT_MD"></label>
       <label class="f"><span>TargetCompID</span>
-        <input type="text" id="v-target_comp_id"></label>
+        <input type="text" id="v-target_comp_id" placeholder="STELLAR"></label>
       <label class="f"><span>SenderSubID <small>optional</small></span>
         <input type="text" id="v-sender_sub_id" placeholder="none"></label>
       <label class="f"><span>OnBehalfOfCompID <small>optional</small></span>
         <input type="text" id="v-on_behalf_of_comp_id" placeholder="none"></label>
-      <label class="f"><span>Username</span>
+      <label class="f"><span>Stellar User Name <small>452=11 on every order</small></span>
         <input type="text" id="v-username"></label>
 
       <label class="f"><span>Password
-          <small id="pw-note">stored in .env, never in config</small></span>
+          <small id="pw-note">stored in .env, never in config — blank if Stellar issued none</small></span>
         <input type="password" id="v-password" placeholder="unchanged"></label>
 
-      <label class="f"><span>Account <small>stamped on every order</small></span>
+      <label class="f"><span>Stellar Account <small>452=24 on every order</small></span>
         <input type="text" id="v-account"></label>
+      <label class="f"><span>Exchange clearing account 1
+          <small>452=1000 — CME's SenderSubID, KRX's beneficiary account; blank = not sent</small></span>
+        <input type="text" id="v-clearing_account" placeholder="none"></label>
+      <label class="f"><span>Send 77 Open/Close
+          <small>not in Stellar's spec; untick only if Stellar refuses the tag</small></span>
+        <input type="checkbox" class="chk" id="v-send_position_effect"></label>
+      <label class="f"><span>MiFID capacity (29) <small>DEAL / AOTC / MTCH, blank = not sent</small></span>
+        <input type="text" id="v-mifid_capacity" placeholder="none"></label>
+      <label class="f"><span>MiFID DEA (1724=5)</span>
+        <input type="checkbox" class="chk" id="v-mifid_dea"></label>
+      <label class="f"><span>MiFID client ID <small>452=3 short code</small></span>
+        <input type="text" id="v-mifid_client_id" placeholder="none"></label>
+      <label class="f"><span>MiFID execution decision <small>452=12 short code</small></span>
+        <input type="text" id="v-mifid_execution_decision" placeholder="none"></label>
+      <label class="f"><span>MiFID investment decision <small>452=122 short code</small></span>
+        <input type="text" id="v-mifid_investment_decision" placeholder="none"></label>
       <label class="f"><span>Heartbeat <small>seconds</small></span>
         <input type="number" id="v-heartbeat_sec" value="30"></label>
-      <label class="f"><span>Reset sequence on logon</span>
+      <label class="f"><span>Reset Order Router sequence on every logon
+          <small>off: Stellar resends what was missed</small></span>
         <input type="checkbox" class="chk" id="v-reset_seq_on_logon"></label>
       <label class="f"><span>TLS</span>
         <input type="checkbox" class="chk" id="v-use_tls"></label>
       <label class="f"><span>Data dictionary</span>
-        <input type="text" id="v-data_dictionary" placeholder="dict/OFSG-FIX44.xml"></label>
+        <input type="text" id="v-data_dictionary" placeholder="not used"></label>
       <label class="f"><span>Enabled</span>
         <input type="checkbox" class="chk" id="v-enabled"></label>
 

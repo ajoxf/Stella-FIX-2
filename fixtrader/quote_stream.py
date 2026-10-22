@@ -27,7 +27,7 @@ class QuotePublisher:
     def publish(self):
         with self.terminal.lock:
             md = self.terminal.gateway._sessions.get('Market Data')
-            payload = {'source': 'TT_FIX_UAT', 'simulated': False,
+            payload = {'source': 'STELLAR_FIX', 'simulated': False,
                        'published_ms': time.time_ns() / 1_000_000,
                        'connected': bool(md and md.state.status == 'CONNECTED' and md.is_running()),
                        'quotes': copy.deepcopy({k: {field: value for field, value in book.items() if field != 'entries'}

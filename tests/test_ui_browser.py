@@ -1258,7 +1258,7 @@ def test_the_execution_button_says_PAPER_or_LIVE_and_the_waiver(server):
     snap = json.loads((tmp / 'status.json').read_text())
     snap['engine']['execution'] = {'mode': 'PAPER', 'can_live': True,
                                    'positions': {'status': 'unavailable',
-                                                 'why': 'TT did not answer'},
+                                                 'why': 'Stellar did not answer'},
                                    'positions_waived': False}
     (tmp / 'status.json').write_text(json.dumps(snap))
     errors = []
@@ -1268,7 +1268,7 @@ def test_the_execution_button_says_PAPER_or_LIVE_and_the_waiver(server):
         page.wait_for_function(
             "!document.getElementById('execution-toggle').classList.contains('hidden')")
         assert button.inner_text() == 'Orders: PAPER'
-        assert 'TT did not answer' in button.get_attribute('title')
+        assert 'Stellar did not answer' in button.get_attribute('title')
         # On a UAT venue sending is called UAT — "LIVE" is a live market.
         snap['engine']['execution'].update(mode='LIVE', positions_waived=True,
                                            send_word='UAT')
@@ -1427,8 +1427,8 @@ def test_the_taskbar_buttons_hold_still_while_the_figures_change(server):
 
 
 def test_the_ladder_draws_the_full_book(server):
-    """Depth: FULL — every level TT sends, each size at its own price, the
-    touch in bold; the button reads FULL and asks TT for the top only when
+    """Depth: FULL — every level Stellar sends, each size at its own price, the
+    touch in bold; the button reads FULL and asks Stellar for the top only when
     pressed. Without depth (the control) only the touch carries a size."""
     url, tmp = server
     snap = json.loads((tmp / 'status.json').read_text())
@@ -1475,7 +1475,7 @@ def test_the_ladder_draws_the_full_book(server):
 
 
 def test_the_fills_tab_prices_a_manual_close_and_counts_lots_and_contracts(server):
-    """Found on TT UAT: manual closing fills showed no P&L (the total was
+    """Found on Stellar UAT: manual closing fills showed no P&L (the total was
     the Algo's alone), and "26 contracts" was the lots traded. A manual close
     is priced against the ticket it closed, with the instrument's tick value."""
     url, tmp = server
@@ -1491,22 +1491,22 @@ def test_the_fills_tab_prices_a_manual_close_and_counts_lots_and_contracts(serve
             'qty': 1.0, 'cum_qty': 1.0, 'leaves_qty': 0.0, 'exec_type': 'F',
             'ord_status': '2', 'text': '', 'ours': 'MANUAL'}
     rows = [
-        dict(base, exec_id='X1', clordid='FTM-open1', order_id='T1', tt_time='20260109-18:46:33.000',
+        dict(base, exec_id='X1', clordid='FTM-open1', order_id='T1', venue_time='20260109-18:46:33.000',
              security_id='GC1', side='BUY', open_close='OPEN', price=4220.1, received='2026-10-09T18:46:33+00:00'),
-        dict(base, exec_id='X2', clordid='FTM-close1', order_id='T2', tt_time='20260109-18:46:34.000',
+        dict(base, exec_id='X2', clordid='FTM-close1', order_id='T2', venue_time='20260109-18:46:34.000',
              security_id='GC1', side='SELL', open_close='CLOSE', price=4218.0, received='2026-10-09T18:46:34+00:00'),
-        dict(base, exec_id='X3', clordid='FTM-open2', order_id='T3', tt_time='20260109-09:39:55.000',
+        dict(base, exec_id='X3', clordid='FTM-open2', order_id='T3', venue_time='20260109-09:39:55.000',
              security_id='ES1', symbol='ES', side='SELL', open_close='OPEN', price=7853.0,
              received='2026-10-09T09:39:55+00:00'),
-        dict(base, exec_id='X4', clordid='FTM-close2', order_id='T4', tt_time='20260109-11:05:21.000',
+        dict(base, exec_id='X4', clordid='FTM-close2', order_id='T4', venue_time='20260109-11:05:21.000',
              security_id='ES1', symbol='ES', side='BUY', open_close='CLOSE', price=7879.0,
              received='2026-10-09T11:05:21+00:00'),
     ]
-    db.save_tt_fills(rows)
+    db.save_venue_fills(rows)
     es = {'security_id': 'ES1', 'tick_size': '0.25', 'tick_value': '12.50'}
     snap = json.loads((tmp / 'status.json').read_text())
     # The desk's own GC contract carries the figures the trader set; the
-    # watchlist has no GC at all, and ES there still reads TT's old 25.
+    # watchlist has no GC at all, and ES there still reads Stellar's old 25.
     snap['contracts'] = list(snap['contracts']) + [dict(
         snap['contracts'][0], key='gc', name='GC Dec26', security_id='GC1',
         tick_size=0.1, tick_value=10.0)]
@@ -1569,7 +1569,7 @@ def test_the_order_review_shows_the_spread_red_when_wide(server):
 
 
 def test_the_feed_line_never_changes_height_and_never_wraps(server):
-    """Found on TT UAT: the price stream and the page refresh each wrote the
+    """Found on Stellar UAT: the price stream and the page refresh each wrote the
     feed line, in two wordings of different lengths — it wrapped differently
     every half second and shifted the whole Instruments page."""
     url, _ = server

@@ -160,8 +160,8 @@ def spawn(argv, name):
 
 
 #: How long a child gets to stop on its own. The engine needs it: its
-#: shutdown cancels our working orders and sends TT a Logout. Killed before
-#: that, TT keeps the sessions logged on — "Session is already connected on
+#: shutdown cancels our working orders and sends Stellar a Logout. Killed before
+#: that, Stellar keeps the sessions logged on — "Session is already connected on
 #: host ..." — and refuses the next start until its own timeout drops them.
 GRACEFUL_STOP_SEC = 25.0
 
@@ -171,7 +171,7 @@ def stop_children(children, graceful=GRACEFUL_STOP_SEC, windows=None):
     by force.
 
     `Popen.terminate()` on Windows is TerminateProcess: no handler runs, so
-    the engine never logged out of TT. There, Ctrl+C has already reached the
+    the engine never logged out of Stellar. There, Ctrl+C has already reached the
     children (they share this console), so they are WAITED for; elsewhere
     they are sent SIGINT, which the runner handles. Whatever is still alive
     after `graceful` seconds is terminated, then killed.
@@ -213,7 +213,7 @@ def main(argv=None) -> int:
     mode.add_argument('--simulated', action='store_true', default=False,
                       help='Use the simulator for development only; never sends FIX orders')
     mode.add_argument('--fix', dest='simulated', action='store_false',
-                      help='Use configured TT FIX sessions (default)')
+                      help='Use configured Stellar FIX sessions (default)')
     args = parser.parse_args(argv)
 
     # Before anything is started, and before any file is written.
@@ -291,7 +291,7 @@ def main(argv=None) -> int:
     except KeyboardInterrupt:
         print("\n[start] stopping")
     finally:
-        print("[start] waiting for the engine to log out of TT…")
+        print("[start] waiting for the engine to log out of Stellar…")
         stop_children(children)
     return 0
 

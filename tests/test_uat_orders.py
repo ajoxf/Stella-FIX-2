@@ -1,12 +1,13 @@
 """The UAT order tests (`python -m fixtrader.uat`), proven here end to end
-before anyone runs them on TT UAT.
+before anyone runs them on Stellar UAT.
 
 Everything between the runner and the wire is the production code: the web
 app's /api/command and /api/snapshot, the command bridge, the engine loop
 (`runner.run`), the real FIX sessions, the manual terminal and the Algo's
-order router. Only TT is a stand-in (`tests/fake_tt.py`), quoting Crude in
-TT's FIX units (9050 for 90.50) with its DisplayFactor, so the conversion is
-tested on the same pass as the orders."""
+order router. Only Stellar is a stand-in (`tests/fake_stellar.py`), quoting
+Crude as Stellar does — in trader prices, 90.50 — and naming it on an order
+by symbol, CFI code and maturity from its Security List, never by Security
+ID."""
 import contextlib
 import json
 import threading
@@ -17,7 +18,7 @@ import pytest
 
 from fixtrader import uat
 from fixtrader.config import ContractConfig, TraderConfig, VenueConfig
-from tests.fake_tt import Exchange, install
+from tests.fake_stellar import Exchange, install
 
 
 class AppDriver(uat.HttpDriver):
@@ -50,10 +51,7 @@ class AppDriver(uat.HttpDriver):
         for row in reversed(rows):
             if row.get('direction') != 'OUT':
                 continue
-            fields = {}
-            for part in str(row.get('raw', '')).split('|'):
-                tag, _, value = part.partition('=')
-                fields.setdefault(tag, value)
+            fields = uat.sent_fields(row.get('raw', ''))
             if clordid in (fields.get('11'), fields.get('41')):
                 out.append(fields)
         return out
@@ -70,26 +68,27 @@ def desk(tmp_path, monkeypatch):
 
 @contextlib.contextmanager
 def open_desk(tmp_path, monkeypatch, **venue_extra):
-    """The real runner and web app against the fake TT; `venue_extra`
-    adds to the venue (a FIX Recovery address, say)."""
+    """The real runner and web app against the fake Stellar; `venue_extra`
+    adds to the venue."""
     monkeypatch.chdir(tmp_path)                       # the FIX log, logs/fix
     monkeypatch.setenv('UAT_OR_PW', 'or-secret')
     monkeypatch.setenv('UAT_MD_PW', 'md-secret')
     tt = Exchange(accounts=('ACC1',))
-    # Crude spread: 90.50 / 90.52 on the screen, 9050 / 9052 on the wire.
-    tt.list('CL1', 9050, 9052, tick=1, factor=0.01, symbol='CL')
+    # Crude: 90.50 / 90.52, on the screen and on the wire alike.
+    tt.list('CL1', 90.50, 90.52, tick=0.01, symbol='CL', exchange='XCME',
+            tick_value=10.0)
     install(monkeypatch, tt)
     cfg = TraderConfig(path=str(tmp_path / 'config.json'))
     cfg.settings['DATABASE_PATH'] = str(tmp_path / 'desk.db')
-    cfg.venues['TT-UAT'] = VenueConfig(
-        name='TT-UAT', environment='UAT', host='or.example', port=11502,
-        fix_version='FIX.4.2', use_tls=False, sender_comp_id='ORDER',
-        target_comp_id='TT', password_env='UAT_OR_PW', md_host='md.example',
-        md_port=11503, md_sender_comp_id='MARKET', md_password_env='UAT_MD_PW',
-        account='ACC1', **venue_extra)
+    cfg.venues['STELLAR-UAT'] = VenueConfig(
+        name='STELLAR-UAT', environment='UAT', host='or.example', port=9001,
+        fix_version='FIX.4.4', use_tls=False, sender_comp_id='STELLAR_UAT',
+        target_comp_id='STELLAR', password_env='UAT_OR_PW', md_host='md.example',
+        md_port=9002, md_sender_comp_id='STELLAR_UAT_MD', md_password_env='UAT_MD_PW',
+        username='USER', account='ACC1', **venue_extra)
     cfg.contracts['clz6'] = ContractConfig(
-        key='clz6', name='Crude Dec/Jan', symbol='CL', venue='TT-UAT',
-        security_id='CL1', security_exchange='CME', tick_size=0.01,
+        key='clz6', name='Crude Dec/Jan', symbol='CL', venue='STELLAR-UAT',
+        security_id='CL1', security_exchange='XCME', tick_size=0.01,
         tick_value=10.0, enabled=True, algo_on=False,
         margin_per_contract=1000.0)
     cfg.save()
@@ -146,14 +145,19 @@ def test_prices_reach_the_screen_in_trader_units(desk):
 
 def test_the_manual_scenarios_pass(desk):
     passed(desk.runner().run(['M3', 'M7', 'M1', 'M8', 'M2', 'M4', 'M6']))
-    # Every order went out in TT's FIX units, never the screen's.
+    # Every order went out at the screen's price (Stellar has no factor), and
+    # named the instrument as Stellar's Security List did: symbol, CFI and
+    # maturity — never a Security ID — with the account in the Parties.
     prices = [float(o['44']) for o in desk.tt.orders_in if o.get('44')]
-    assert prices and all(p > 1000 for p in prices), prices
+    assert prices and all(80 < p < 100 for p in prices), prices
+    new = [o for o in desk.tt.orders_in if o['35'] == 'D']
+    assert new and all(o['55'] == 'CL' and o['461'] == 'FXXXXX' and o['200'] == '202612'
+                       and '48' not in o and '452=11' in o['raw'] for o in new)
 
 
 def test_the_algo_scenarios_need_live_and_say_so(desk):
     results = desk.runner().run(['A1'])
-    assert results[0]['status'] == 'FAIL' and 'TT UAT' in results[0]['detail']
+    assert results[0]['status'] == 'FAIL' and 'Stellar UAT' in results[0]['detail']
     assert not desk.tt.orders_in                    # nothing sent
 
 
@@ -162,7 +166,10 @@ def test_the_algo_scenarios_pass_on_live(desk):
     assert armed.get('ok'), armed
     passed(desk.runner().run(['A1', 'A5', 'A2', 'A6', 'A3']))
     algo = [o for o in desk.tt.orders_in if o['11'].startswith('FT-')]
-    assert algo and all(o.get('1028') == 'N' for o in algo if o['35'] == 'D')
+    # The Algo's orders: the account and user in Stellar's Parties group,
+    # and every one saying whether it opens or closes.
+    assert algo and all('448=ACC1\x01447=D\x01452=24' in o['raw'] and o.get('77') in ('O', 'C')
+                        for o in algo if o['35'] == 'D')
 
 
 def test_a_resting_limit_fills_when_the_market_reaches_it(desk):
@@ -171,9 +178,9 @@ def test_a_resting_limit_fills_when_the_market_reaches_it(desk):
 
     def trade_down():
         time.sleep(1.5)
-        desk.tt.move('CL1', 9049, 9050)             # the offer reaches our bid
+        desk.tt.move('CL1', 90.49, 90.50)             # the offer reaches our bid
         time.sleep(1.5)
-        desk.tt.move('CL1', 9050, 9052)
+        desk.tt.move('CL1', 90.50, 90.52)
     threading.Thread(target=trade_down, daemon=True).start()
     results = r.run(['M5'])
     passed(results)
@@ -185,9 +192,9 @@ def test_an_algo_resting_limit_fills_when_the_market_reaches_it(desk):
 
     def trade_down():
         time.sleep(1.5)
-        desk.tt.move('CL1', 9049, 9050)
+        desk.tt.move('CL1', 90.49, 90.50)
         time.sleep(1.5)
-        desk.tt.move('CL1', 9050, 9052)
+        desk.tt.move('CL1', 90.50, 90.52)
     threading.Thread(target=trade_down, daemon=True).start()
     results = desk.runner().run(['A4'])
     passed(results)
@@ -265,7 +272,7 @@ def test_an_algo_test_order_while_the_algo_trades_is_managed_like_live(desk):
     d = desk.d
     assert d.command('execution', '', {'mode': 'LIVE', 'confirm': True})['ok']
     # One tick wide: the spread alone ($10) does not reach the 2% stop ($20).
-    desk.tt.move('CL1', 9051, 9052)
+    desk.tt.move('CL1', 90.51, 90.52)
     run = desk.runner()
     run.until('the one-tick book', lambda s: run.contract(s)['market'].get('bid') == 90.51)
     r = d.command('algo_state', 'clz6', {'state': 'TRADE'})
@@ -277,7 +284,7 @@ def test_an_algo_test_order_while_the_algo_trades_is_managed_like_live(desk):
     assert pos['side'] == 'BUY'
     again = d.command('uat_order', 'clz6', {'side': 'BUY', 'order_type': 'MARKET'})
     assert not again['ok'] and 'open' in again['error']       # one at a time
-    desk.tt.move('CL1', 9150, 9152)                           # +1.00: past the TP
+    desk.tt.move('CL1', 91.50, 91.52)                           # +1.00: past the TP
     run.until('closed by the Algo at its target', lambda s: run.algo_position(s) is None)
     closes = [o for o in desk.tt.orders_in if o.get('77') == 'C']
     assert closes and closes[-1]['11'].startswith('FT-') and closes[-1]['54'] == '2'
@@ -336,8 +343,8 @@ def test_each_flow_keeps_its_newest_result_across_runs(desk):
     assert [r['id'] for r in body['last']['results']] == ['M1']     # the run itself
 
 
-def test_an_at_market_order_tt_cancels_unfilled_fails_at_once_and_says_why(desk):
-    """A thin UAT market: the price is shown, nothing at it trades, and TT
+def test_an_at_market_order_stellar_cancels_unfilled_fails_at_once_and_says_why(desk):
+    """A thin UAT market: the price is shown, nothing at it trades, and Stellar
     cancels the immediate-or-cancel order. The check says so straight away
     — not "filled — not seen in 20s"."""
     desk.tt.no_liquidity = True
@@ -386,7 +393,7 @@ def test_an_algo_close_written_late_to_the_fix_log_is_still_found(desk, monkeypa
 
 
 def test_the_screen_reads_the_database_the_engine_writes(tmp_path, monkeypatch):
-    """Found on TT UAT: DATABASE_PATH is relative ('fixtrader.db'). The engine
+    """Found on UAT: DATABASE_PATH is relative ('fixtrader.db'). The engine
     put it beside its status file (runtime/), the screen read it from the
     program folder — an empty file: no fills on the Fills tab, and the Algo
     checks found "no closing order". Both now resolve it the same way."""

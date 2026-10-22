@@ -104,7 +104,7 @@ def apply_command(engine, command: Dict[str, Any]) -> Dict[str, Any]:
         if action.startswith('terminal_'):
             terminal = getattr(engine.gateway, 'terminal', None)
             if terminal is None:
-                raise ValueError('Start the TT FIX engine to use instruments and manual orders')
+                raise ValueError('Start the Stellar FIX engine to use instruments and manual orders')
             operation = action[len('terminal_'):]
             methods = {'search': terminal.lookup, 'add': terminal.add, 'remove': terminal.remove,
                        'depth': terminal.depth,
@@ -115,7 +115,8 @@ def apply_command(engine, command: Dict[str, Any]) -> Dict[str, Any]:
             if operation not in methods:
                 raise ValueError('Unknown terminal action')
             return methods[operation](args)
-        if action in ('fix_connect', 'fix_status', 'fix_disconnect', 'fix_reconnect'):
+        if action in ('fix_connect', 'fix_status', 'fix_disconnect', 'fix_reconnect',
+                      'fix_reset_sequences'):
             gateway = engine.gateway
             venue = getattr(gateway, 'venue', None)
             if venue is None or venue.name != args.get('venue'):
@@ -132,9 +133,14 @@ def apply_command(engine, command: Dict[str, Any]) -> Dict[str, Any]:
                     for session in sessions)
                 if sequence_error:
                     raise ValueError(
-                        'TT FIX sequence mismatch. Connect/reconnect is blocked until '
-                        'TT confirms the sequence reset or recovery procedure and '
-                        'working orders and fills have been reconciled.')
+                        'Stellar FIX sequence mismatch. Connect/reconnect is blocked until '
+                        'Stellar confirms its side of the sequence numbers and working '
+                        'orders and fills have been reconciled — then Reset sequence numbers.')
+            if action == 'fix_reset_sequences':
+                reset = getattr(gateway, 'reset_sequences', None)
+                if not callable(reset):
+                    return {'ok': False, 'error': 'this venue keeps no sequence numbers'}
+                return reset()
             if action == 'fix_connect':
                 gateway.start()
             elif action == 'fix_disconnect':

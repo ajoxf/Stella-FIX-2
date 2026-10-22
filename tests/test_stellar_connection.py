@@ -24,7 +24,7 @@ class Peer:
         self.sent.append(fields)
         if fields['35'] == 'A':
             reply = encode_fix_message([
-                ('35', 'A'), ('34', '1'), ('49', 'TT'), ('56', fields['49']),
+                ('35', 'A'), ('34', '1'), ('49', 'STELLAR'), ('56', fields['49']),
                 ('98', '0'), ('108', '30'), ('141', 'Y')])
             # A checksum split across TCP reads used to break the backup client.
             self.received.extend([reply[:-2], reply[-2:]])
@@ -42,10 +42,10 @@ class Peer:
 def venue(monkeypatch):
     monkeypatch.setenv('TEST_OR', 'or-secret')
     monkeypatch.setenv('TEST_MD', 'md-secret')
-    return VenueConfig(name='TT-UAT', host='or.example', port=11502,
-        fix_version='FIX.4.2', use_tls=False, sender_comp_id='ORDER',
-        target_comp_id='TT', password_env='TEST_OR',
-        md_host='md.example', md_port=11503, md_sender_comp_id='MARKET',
+    return VenueConfig(name='STELLAR-UAT', host='or.example', port=9001,
+        fix_version='FIX.4.4', use_tls=False, sender_comp_id='STELLAR_UAT',
+        target_comp_id='STELLAR', password_env='TEST_OR', username='USER',
+        md_host='md.example', md_port=9002, md_sender_comp_id='STELLAR_UAT_MD',
         md_password_env='TEST_MD', on_behalf_of_sub_id='OPERATOR')
 
 
@@ -66,8 +66,11 @@ def test_two_sessions_logon_fragmented_response_heartbeat_and_logout(monkeypatch
         assert len(peers) == 2
         gateway.start()
         assert len(peers) == 2  # Repeated Connect must not create another logon.
-        assert {p.sent[0]['49'] for p in peers} == {'ORDER', 'MARKET'}
-        assert {p.sent[0]['96'] for p in peers} == {'or-secret', 'md-secret'}
+        assert {p.sent[0]['49'] for p in peers} == {'STELLAR_UAT', 'STELLAR_UAT_MD'}
+        assert all(p.sent[0]['8'] == 'FIX.4.4' and p.sent[0]['56'] == 'STELLAR' for p in peers)
+        # A password Stellar issued goes as Username / Password (553 / 554).
+        assert {p.sent[0]['554'] for p in peers} == {'or-secret', 'md-secret'}
+        assert all(p.sent[0]['553'] == 'USER' for p in peers)
         assert all(p.sent[0]['116'] == 'OPERATOR' for p in peers)
         snapshot = gateway.connection_snapshot()
         assert len(snapshot['sessions']) == 2
@@ -76,13 +79,13 @@ def test_two_sessions_logon_fragmented_response_heartbeat_and_logout(monkeypatch
         assert 'md-secret' not in str(snapshot) and 'or-secret' not in str(snapshot)
         session = gateway._sessions['Market Data']
         session._incoming(encode_fix_message([
-            ('35', '1'), ('34', '2'), ('49', 'TT'), ('56', 'MARKET'),
+            ('35', '1'), ('34', '2'), ('49', 'STELLAR'), ('56', 'STELLAR_UAT_MD'),
             ('112', 'probe')]).decode('ascii'))
         assert session.socket.sent[-1]['112'] == 'probe'
         assert session.socket.sent[-1]['35'] == '0'
         with pytest.raises(NotImplementedError):
             session.send('D', [])
-        # The Algo's order path: an order for a contract with no TT security
+        # The Algo's order path: an order for a contract with no Stellar security
         # id on this session is refused in words, and nothing goes out.
         from fixtrader.models import OrderRequest, Side
         before = len(peers[0].sent) + len(peers[1].sent)
@@ -90,9 +93,9 @@ def test_two_sessions_logon_fragmented_response_heartbeat_and_logout(monkeypatch
                                         qty=1))
         refused = gateway.algo.drain()
         assert refused[-1].kind == 'REJECTED' and refused[-1].clordid == cid
-        assert 'no TT security id' in refused[-1].text
+        assert 'no Stellar security id' in refused[-1].text
         assert len(peers[0].sent) + len(peers[1].sent) == before
-        # Positions are unknown until TT answers — never an empty account.
+        # Positions are unknown — never an empty account.
         assert gateway.orders() is None and gateway.positions() is None
         session.state.error = 'Rejected md-secret'
         assert 'md-secret' not in gateway.state_text()
@@ -108,7 +111,7 @@ def test_two_sessions_logon_fragmented_response_heartbeat_and_logout(monkeypatch
         assert gateway.state() == SessionState.CONNECTING
         assert gateway.connection_snapshot()['reconnect_in'] > 0
         gateway.drain_events()
-        assert len(peers) == 3  # Never log on during the TT cooldown.
+        assert len(peers) == 3  # Never log on during the reconnect cooldown.
         gateway._reconnect_at = time.monotonic() - 1
         gateway._connect_not_before = time.monotonic() - 1
         gateway.drain_events()
@@ -123,18 +126,44 @@ def test_two_sessions_logon_fragmented_response_heartbeat_and_logout(monkeypatch
     assert all(p.closed and p.sent[-1]['35'] == '5' for p in peers)
 
 
-def test_missing_credentials_and_unsupported_protocol_do_not_open_sockets(monkeypatch):
+def test_missing_settings_and_another_fix_version_do_not_open_sockets(monkeypatch):
     def forbidden(*args, **kwargs):
         pytest.fail('Must not connect with invalid configuration')
     monkeypatch.setattr(socket, 'create_connection', forbidden)
     v = venue(monkeypatch)
+    v.md_sender_comp_id = ''
+    gateway = FixGateway(v)
+    gateway.start()
+    assert 'Market Data: missing sender_comp_id' in gateway.state_text()
+    v.md_sender_comp_id = 'STELLAR_UAT_MD'
+    v.fix_version = 'FIX.4.2'
+    gateway.start()
+    assert 'FIX.4.4' in gateway.state_text()
+
+
+def test_no_password_is_not_a_missing_setting(monkeypatch):
+    """Stellar's Logon carries no credentials of its own: a session
+    authorised by its address has no password, and connects."""
+    peers = []
+
+    def connect(*args, **kwargs):
+        peer = Peer()
+        peers.append(peer)
+        return peer
+    monkeypatch.setattr(socket, 'create_connection', connect)
+    v = venue(monkeypatch)
+    monkeypatch.delenv('TEST_OR')
     monkeypatch.delenv('TEST_MD')
     gateway = FixGateway(v)
     gateway.start()
-    assert 'Market Data: missing password' in gateway.state_text()
-    v.fix_version = 'FIX.4.4'
-    gateway.start()
-    assert 'FIX.4.2' in gateway.state_text()
+    try:
+        deadline = time.monotonic() + 2
+        while gateway.state() == SessionState.CONNECTING and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert gateway.state() == SessionState.LOGGED_ON
+        assert all('554' not in p.sent[0] for p in peers)
+    finally:
+        gateway.stop()
 
 
 def test_socket_permission_denied_has_a_network_remedy(monkeypatch):
@@ -165,14 +194,14 @@ def test_sequence_gap_diagnosis_requires_venue_reconciliation(monkeypatch):
     assert 'missing order-session message' in remedy
 
 
-def test_out_of_sequence_logout_preserves_tt_reason_for_diagnosis():
+def test_out_of_sequence_logout_preserves_stellars_reason_for_diagnosis():
     logged = []
     service = SimpleNamespace(log_fix=lambda *args: logged.append(args))
     state = SimpleNamespace(lock=threading.RLock(), in_seq=0)
     session = NativeFixSession(service, state, 'Order Routing', {
-        'sender_comp_id': 'ORDER', 'target_comp_id': 'TT'})
+        'sender_comp_id': 'STELLAR_UAT', 'target_comp_id': 'STELLAR'})
     logout = encode_fix_message([
-        ('35', '5'), ('34', '8'), ('49', 'TT'), ('56', 'ORDER'),
+        ('35', '5'), ('34', '8'), ('49', 'STELLAR'), ('56', 'STELLAR_UAT'),
         ('58', 'session reset not authorized')]).decode('ascii')
 
     with pytest.raises(ConnectionError, match='expected 1, received 8') as raised:
@@ -190,7 +219,7 @@ def test_delayed_logon_diagnosis_calls_out_clock_and_venue_limit(monkeypatch):
     remedy = gateway._connection_fix()
 
     assert 'host clock' in remedy
-    assert 'TT' in remedy
+    assert 'Stellar' in remedy
     assert 'latency limit' in remedy
 
 
@@ -199,13 +228,13 @@ def test_separate_session_settings_survive_config_roundtrip(monkeypatch):
     raw = v.to_dict()
     assert 'or-secret' not in str(raw) and 'md-secret' not in str(raw)
     loaded = VenueConfig.from_dict(v.name, raw)
-    assert loaded.md_sender_comp_id == 'MARKET'
+    assert loaded.md_sender_comp_id == 'STELLAR_UAT_MD'
     assert loaded.md_password_env == 'TEST_MD'
     assert loaded.on_behalf_of_sub_id == 'OPERATOR'
 
 
 def test_a_logon_in_progress_is_WAITING_not_a_failure(monkeypatch):
-    """Connect answers in 3 s; TT has 20 s to answer the Logon. A handshake
+    """Connect answers in 3 s; Stellar has 20 s to answer the Logon. A handshake
     still CONNECTING was reported as FAIL with "check the credentials in
     .env", which sends the operator after a password nobody refused."""
     gateway = FixGateway(venue(monkeypatch))
@@ -222,7 +251,7 @@ def test_a_refused_logon_is_still_a_failure(monkeypatch):
     """The control: an ERROR is not pending, and carries its remedy."""
     gateway = FixGateway(venue(monkeypatch))
     gateway._sessions['Order Routing'] = SimpleNamespace(state=SimpleNamespace(
-        status='ERROR', error='TT did not answer the Logon request within 20 seconds'),
+        status='ERROR', error='Stellar did not answer the Logon request within 20 seconds'),
         cfg={'password': 'x'})
     row = gateway.diagnose()[0]
     assert row['ok'] is False and row['pending'] is False
@@ -230,7 +259,7 @@ def test_a_refused_logon_is_still_a_failure(monkeypatch):
 
 
 def test_a_session_already_logged_on_elsewhere_names_the_other_copy(monkeypatch):
-    """TT's words: 'Session is already connected on host ...'. The password
+    """A FIX server's words: 'Session is already connected on host ...'. The password
     was accepted — sending the operator to .env is the wrong errand."""
     gateway = FixGateway(venue(monkeypatch))
     gateway._sessions['Order Routing'] = SimpleNamespace(state=SimpleNamespace(
@@ -240,3 +269,16 @@ def test_a_session_already_logged_on_elsewhere_names_the_other_copy(monkeypatch)
     row = gateway.diagnose()[0]
     assert row['ok'] is False
     assert 'another copy' in row['fix'] and 'credentials are fine' in row['fix']
+
+
+def test_a_prod_venue_is_refused_and_opens_no_socket(monkeypatch):
+    """As on the TT desk this was ported from: production stays refused
+    until the adapter has been proven on Stellar UAT."""
+    def forbidden(*args, **kwargs):
+        pytest.fail('Must not connect a PROD venue')
+    monkeypatch.setattr(socket, 'create_connection', forbidden)
+    v = venue(monkeypatch)
+    v.environment = 'PROD'
+    gateway = FixGateway(v)
+    gateway.start()
+    assert 'UAT venue only' in gateway.state_text()

@@ -159,7 +159,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     'DEFAULT_MIN_HISTORY_MINUTES': 120.0,
     'DEFAULT_SAMPLE_INTERVAL_SEC': 1.0,
     'DEFAULT_STATS_UPDATE_INTERVAL_SEC': 300.0,
-    #: The margin one contract ties up, as the operator enters it: TT does
+    #: The margin one contract ties up, as the operator enters it: Stellar does
     #: not report it. The target and the stop are percentages OF this, so a
     #: contract without one in MARGIN mode has no levels — and does not enter.
     'DEFAULT_MARGIN_PER_CONTRACT': 0.0,
@@ -177,7 +177,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     #: A MARKET order goes to the exchange as a LIMIT this many ticks
     #: THROUGH the touch (a buy at the offer + N, a sell at the bid - N),
     #: immediate-or-cancel: it fills now or not at all, like a market order,
-    #: but with a price an exchange's price band accepts. CME (via TT) gives
+    #: but with a price an exchange's price band accepts. CME (via Stellar) gives
     #: a bare market order its own protection price and REJECTS it when that
     #: is outside the band — a close that never happens. 0 sends a true
     #: market order.
@@ -365,13 +365,16 @@ class VenueConfig:
                  on_behalf_of_comp_id: str = "",
                  fix_version: str = "FIX.4.4", username: str = "",
                  password_env: str = "", account: str = "",
-                 heartbeat_sec: int = 30, reset_seq_on_logon: bool = True,
+                 heartbeat_sec: int = 30, reset_seq_on_logon: bool = False,
                  use_tls: bool = True, data_dictionary: str = "",
                  store_path: str = "", log_path: str = "",
                  enabled: bool = True, on_behalf_of_sub_id: str = "",
                  md_sender_comp_id: str = "", md_target_comp_id: str = "",
                  md_password_env: str = "",
-                 recovery_host: str = "", recovery_port: Optional[int] = None):
+                 clearing_account: str = "", send_position_effect: bool = True,
+                 mifid_capacity: str = "", mifid_dea: bool = False,
+                 mifid_client_id: str = "", mifid_execution_decision: str = "",
+                 mifid_investment_decision: str = ""):
         self.name = name
         self.environment = self._environment(environment, name)
         self.broker = broker
@@ -383,10 +386,26 @@ class VenueConfig:
         self.md_password_env = md_password_env
         self.md_host = md_host
         self.md_port = int(md_port) if md_port else None
-        #: TT FIX Recovery for the Order Routing session: the SAME login on
-        #: its own address. Blank = derived from the Order Routing endpoint.
-        self.recovery_host = recovery_host
-        self.recovery_port = int(recovery_port) if recovery_port else None
+        #: Stellar's Parties group on every order: 452=11 is `username` (the
+        #: Stellar User Name), 452=24 is `account` (the Stellar Account Name),
+        #: and 452=1000 is `clearing_account` (ExchangeClearingAccount1 —
+        #: CME takes its SenderSubID (50) from it, KRX its beneficiary
+        #: account). Blank is not sent.
+        self.clearing_account = clearing_account
+        #: 77=O / 77=C on every order. Stellar's spec does not list tag 77;
+        #: it is sent because a close must SAY it is a close, and can be
+        #: switched off here if Stellar refuses the tag.
+        self.send_position_effect = bool(send_position_effect)
+        #: MiFID tagging (Stellar spec section 6), each blank = not sent:
+        #: 29 LastCapacity (DEAL / AOTC / MTCH), 1724=5 when `mifid_dea`,
+        #: 452=3 client ID, 452=12 execution decision and 452=122
+        #: investment decision as short codes (447=P) — qualified 22
+        #: (algorithm) on the Algo's orders and 24 (person) on manual ones.
+        self.mifid_capacity = str(mifid_capacity or '').strip().upper()
+        self.mifid_dea = bool(mifid_dea)
+        self.mifid_client_id = mifid_client_id
+        self.mifid_execution_decision = mifid_execution_decision
+        self.mifid_investment_decision = mifid_investment_decision
         self.sender_comp_id = sender_comp_id
         self.target_comp_id = target_comp_id
         self.sender_sub_id = sender_sub_id
@@ -420,24 +439,6 @@ class VenueConfig:
                 f"venues with separate credentials and neither is a default.")
         return env
 
-    #: TT's FIX Recovery (Order Routing) beside each Order Routing endpoint:
-    #: direct TLS on 11502 -> 11508, through stunnel 11702 -> 11708.
-    RECOVERY_PORTS = {11502: 11508, 11702: 11708}
-
-    def recovery_endpoint(self):
-        """(host, port) of FIX Recovery for the Order Routing session, or
-        (None, None) when it cannot be told — said, never guessed."""
-        if self.recovery_host and self.recovery_port:
-            return self.recovery_host, self.recovery_port
-        host, port = self.host or '', self.port
-        if port not in self.RECOVERY_PORTS:
-            return None, None
-        if 'fixorderrouting-' in host:
-            host = host.replace('fixorderrouting-', 'fixrecovery-')
-        elif host not in ('127.0.0.1', 'localhost'):
-            return None, None
-        return self.recovery_host or host, self.recovery_port or self.RECOVERY_PORTS[port]
-
     @property
     def is_production(self) -> bool:
         return self.environment == "PROD"
@@ -457,7 +458,12 @@ class VenueConfig:
             'environment': self.environment, 'broker': self.broker,
             'host': self.host, 'port': self.port,
             'md_host': self.md_host, 'md_port': self.md_port,
-            'recovery_host': self.recovery_host, 'recovery_port': self.recovery_port,
+            'clearing_account': self.clearing_account,
+            'send_position_effect': self.send_position_effect,
+            'mifid_capacity': self.mifid_capacity, 'mifid_dea': self.mifid_dea,
+            'mifid_client_id': self.mifid_client_id,
+            'mifid_execution_decision': self.mifid_execution_decision,
+            'mifid_investment_decision': self.mifid_investment_decision,
             'md_sender_comp_id': self.md_sender_comp_id,
             'md_target_comp_id': self.md_target_comp_id,
             'md_password_env': self.md_password_env,
@@ -490,6 +496,10 @@ class VenueConfig:
         raw.pop('name', None)
         raw.pop('password_set', None)
         raw.pop('password', None)        # never accepted from a file
+        # TT's FIX Recovery address, in a config from the TT desk: Stellar
+        # has no such service.
+        raw.pop('recovery_host', None)
+        raw.pop('recovery_port', None)
         return cls(name=name, **raw)
 
 

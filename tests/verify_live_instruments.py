@@ -1,4 +1,4 @@
-"""Read-only TT UAT smoke check: search, subscribe, review. Never sends orders."""
+"""Read-only Stellar UAT smoke check: search, subscribe, review. Never sends orders."""
 from pathlib import Path
 import json
 from playwright.sync_api import sync_playwright, expect

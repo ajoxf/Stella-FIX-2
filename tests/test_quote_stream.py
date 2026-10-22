@@ -11,7 +11,7 @@ def test_quote_publisher_writes_only_market_state(terminal, tmp_path):
     publisher=QuotePublisher(terminal, path)
     publisher.publish()
     payload=json.loads((tmp_path/'status.json.quotes.json').read_text())
-    assert payload['source']=='TT_FIX_UAT' and payload['simulated'] is False
+    assert payload['source']=='STELLAR_FIX' and payload['simulated'] is False
     assert payload['connected'] is True
     assert payload['quotes']['101']['bid']==10
     assert 'entries' not in payload['quotes']['101']

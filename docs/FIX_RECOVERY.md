@@ -1,50 +1,64 @@
-# TT FIX Recovery (Order Routing)
+# What the Order Router missed, recovered from Stellar
 
 A FIX client that was not listening — the line dropped, the PC restarted, the
-program was closed — never receives the Execution Reports TT sent meanwhile.
-A fill among them is a position at TT that this screen does not know about.
-TT FIX Recovery replays them.
+program was closed — never receives the Execution Reports Stellar sent
+meanwhile. A fill among them is a position at Stellar that this screen does
+not know about. Stellar has no separate recovery service (TT's FIX Recovery
+has no Stellar equivalent); two things stand in for it.
 
-## How the program uses it
+## 1. The Order Router keeps its sequence numbers
 
-1. Order Routing logs on and TT says "Recovery is complete".
-2. The previous run's working Algo orders are adopted (so a replayed fill is
-   applied as what it was), then the startup sweep cancels them.
-3. A second, short connection logs on to **TT FIX Recovery** with the **same
-   SenderCompID, TargetCompID and password** as Order Routing, at sequence 1.
-4. After TT's "Recovery is complete" it sends ONE **Recovery Request (U2)**:
-   - `18002=Y` — reconciliation: everything TT has not already delivered
-     since its weekly reset (Saturday 22:00 UTC); or
-   - `916` / `917` — a window, from a minute before Order Routing was last
-     heard to now, when that is before the weekly reset. TT keeps 720 hours
-     (fewer than 250 accounts); older than that is said, with Orient's
-     statement as the remedy.
-5. TT replays Execution Reports (8) and Cancel Rejects (9), then logs out
-   with "Recovery completed for fix-session=…".
+The Order Router's numbers are kept across restarts (`SequenceStore`, in the
+terminal's database): the outgoing number is written BEFORE each message goes,
+so it is never used twice; the incoming one at most once a second and when
+the session ends. At the next logon Stellar's first message shows how much was
+missed, a **ResendRequest (2)** asks for it, and what Stellar resends
+(`43=Y`) is applied **in Stellar's order** — anything that came ahead of the
+gap is held until the gap is filled. New orders wait for that (`ready()`);
+a CLOSE never waits. If the resend never completes, the session goes ahead
+after `READY_FALLBACK_SEC`, said in the FIX log.
 
-Every replayed report goes through the same code as a live one: a fill already
-booked is never booked twice, a spread leg is never booked, a bust is said, the
-price is converted from TT's FIX units, and an order already FILLED or
-CANCELED is never moved back. While it runs, Algo entries wait; exits never do.
+Market Data does NOT keep its numbers: Stellar's spec says resend requests on
+Market Data are not supported, so it resets on every logon (141=Y) and a gap
+there re-requests every book.
 
-## Where it connects
+**Reset sequence numbers** (Connection page, sessions down, pressed twice)
+starts the Order Router from 1 at the next logon — ONLY when Stellar says it
+has reset its side. The venue's "Reset Order Router sequence on every logon"
+does the same at every logon, for a session Stellar resets daily; it gives up
+the resend.
 
-| Order Routing | FIX Recovery (Order Routing) |
-|---|---|
-| `fixorderrouting-ext-uat-cert.trade.tt:11502` | `fixrecovery-ext-uat-cert.trade.tt:11508` |
-| stunnel `127.0.0.1:11702` | stunnel `127.0.0.1:11708` (add a `[recoveryfix-tcp]` section) |
+## 2. The order status sweep
 
-Any other order-entry address needs the Recovery host and port set on the
-**Exchanges** page; until then the Reconciler tab says Recovery is not set up.
+After each Order Router logon — once the resend is in, and once the previous
+run's working Algo orders are adopted (so a fill is applied as what it was)
+and the startup sweep has asked to cancel them — every order of ours still
+recorded as working is asked about with an **Order Status Request (H)**:
+ClOrdID (11), Stellar's OrderID (37), an OrdStatusReqID (790) and the
+instrument. Stellar answers each with an Execution Report, ExecType I,
+carrying the 790:
+
+- a CANCELLED or REJECTED order is closed on the book;
+- a CumQty above what this book has booked is SAID — "the trade report was
+  not received; this program has NOT changed the position" — never booked
+  without the trade's price;
+- an order already FILLED or CANCELLED here is never moved back.
+
+Every report goes through the same code as a live one: a fill already booked
+is never booked twice (by ExecID), a strategy leg is never booked, a bust or
+correction is said. While the sweep runs, Algo entries wait; exits never do.
+An order of ours whose OrderID was never heard cannot be asked about, or
+cancelled (Stellar cancels by OrderID): it is said, never assumed gone.
 
 ## On the screen
 
-Trading Monitor → **Reconciler**: the last Recovery (done / running /
-REFUSED / FAILED, in TT's words), how many reports TT replayed, when Order
-Routing was last heard, and **Recover now**.
+Trading Monitor → **Reconciler**: the last sweep (done / running / FAILED,
+with the orders Stellar did not answer for), when the Order Router was last
+heard, and **Ask Stellar now**.
 
 ## What it cannot do
 
-- Trade Capture Reports (AE: block trades, transfers) are not replayed.
-- A position opened before TT's 720-hour window needs a starting figure from
-  Orient's statement.
+- Positions: Stellar's Order Router provides none. A position opened by other
+  means on the account is invisible here; Stellar's or the clearer's statement
+  is the remedy.
+- Reports beyond what Stellar keeps for a resend, if its side was reset.

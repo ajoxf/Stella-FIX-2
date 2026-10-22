@@ -34,7 +34,7 @@
     <span id="link-badge" class="link unknown" title="The venue session, and whether prices are arriving">checking&hellip;</span>
     <a class="tk" href="/desk" title="Open the algorithm desk">Algo desk</a>
     <button id="master-toggle" class="tk" title="The one switch that stands every contract's algo down at once">Master: &mdash;</button>
-    <button id="execution-toggle" class="tk hidden" title="Where the Algo's orders go: PAPER fills them here; UAT (or LIVE on a live venue) sends them to TT">Orders: &mdash;</button>
+    <button id="execution-toggle" class="tk hidden" title="Where the Algo's orders go: PAPER fills them here; UAT (or LIVE on a live venue) sends them to Stellar">Orders: &mdash;</button>
     <button id="sound-toggle" class="tk" title="A blip when an order is sent, two rising notes on a fill, a low note on a reject">Sound: on</button>
     <button id="tidy" class="tk" title="Put every window back in a row">Tidy</button>
     <button id="text-smaller" class="tk" title="Smaller text">A&minus;</button><span id="text-size" class="stat" title="Text size — kept in this browser">Text 130%</span><button id="text-bigger" class="tk" title="Bigger text">A+</button>
@@ -289,7 +289,7 @@
     <div class="badgebar">
       <span class="state">&mdash;</span>
       <span class="dirbadge hidden" title="This contract enters in one direction only; exits are never restricted"></span>
-      <span class="algo-switch" title="This contract's Algo — Off (you trade it by hand), Signals (the Algo signals and watches your position's TP/SL — you trade it on the ladder), Paper (the Algo trades it, filled here) or UAT / LIVE (the Algo trades it, orders sent to TT)"><button type="button" class="algo-btn off">ALGO OFF</button><span class="algo-menu" hidden><button type="button" data-algo="OFF">Off — trade by hand</button><button type="button" data-algo="DRY">Signals — the Algo signals, you trade</button><button type="button" data-algo="PAPER">Paper — the Algo trades it, filled here, nothing sent</button><button type="button" data-algo="SEND" class="live">UAT — the Algo trades it, orders sent to TT UAT</button></span></span>
+      <span class="algo-switch" title="This contract's Algo — Off (you trade it by hand), Signals (the Algo signals and watches your position's TP/SL — you trade it on the ladder), Paper (the Algo trades it, filled here) or UAT / LIVE (the Algo trades it, orders sent to Stellar)"><button type="button" class="algo-btn off">ALGO OFF</button><span class="algo-menu" hidden><button type="button" data-algo="OFF">Off — trade by hand</button><button type="button" data-algo="DRY">Signals — the Algo signals, you trade</button><button type="button" data-algo="PAPER">Paper — the Algo trades it, filled here, nothing sent</button><button type="button" data-algo="SEND" class="live">UAT — the Algo trades it, orders sent to Stellar UAT</button></span></span>
     </div>
     <div class="wbody aw-body">
       <div class="aw-section aw-signal"></div>
@@ -329,9 +329,9 @@
     <div class="titlebar">
       <span class="swatch"></span>
       <span class="title"></span>
-      <span class="ld-route" title="TT Security ID"></span>
+      <span class="ld-route" title="Stellar Security ID"></span>
       <span class="ld-ordtype" title="How the Algo sends its orders — set in this contract's settings"></span>
-      <span class="algo-switch" title="This contract's Algo — Off (you trade it by hand), Signals (the Algo signals and watches your position's TP/SL — you trade it on the ladder), Paper (the Algo trades it, filled here) or UAT / LIVE (the Algo trades it, orders sent to TT)"><button type="button" class="algo-btn off">ALGO OFF</button><span class="algo-menu" hidden><button type="button" data-algo="OFF">Off — trade by hand</button><button type="button" data-algo="DRY">Signals — the Algo signals, you trade</button><button type="button" data-algo="PAPER">Paper — the Algo trades it, filled here, nothing sent</button><button type="button" data-algo="SEND" class="live">UAT — the Algo trades it, orders sent to TT UAT</button></span></span>
+      <span class="algo-switch" title="This contract's Algo — Off (you trade it by hand), Signals (the Algo signals and watches your position's TP/SL — you trade it on the ladder), Paper (the Algo trades it, filled here) or UAT / LIVE (the Algo trades it, orders sent to Stellar)"><button type="button" class="algo-btn off">ALGO OFF</button><span class="algo-menu" hidden><button type="button" data-algo="OFF">Off — trade by hand</button><button type="button" data-algo="DRY">Signals — the Algo signals, you trade</button><button type="button" data-algo="PAPER">Paper — the Algo trades it, filled here, nothing sent</button><button type="button" data-algo="SEND" class="live">UAT — the Algo trades it, orders sent to Stellar UAT</button></span></span>
       <span class="winbtns"><button class="winbtn min" title="Minimise — the taskbar button brings it back">&#8211;</button><button class="winbtn close" title="Close this window">&times;</button></span>
     </div>
     <div class="ld-quotestrip">
@@ -344,12 +344,12 @@
         <span><label>O:</label><b class="ld-o">&mdash;</b></span>
         <span><label>LT:</label><b class="ld-lt">&mdash;</b></span>
       </div>
-      <span class="ld-ours" title="FIX market data carries no session high/low/open here: these are OUR own figures from the mids this system watched today (UTC). LT is TT's last trade — shown, never used as a price.">ours</span>
+      <span class="ld-ours" title="FIX market data carries no session high/low/open here: these are OUR own figures from the mids this system watched today (UTC). LT is Stellar's last trade — shown, never used as a price.">ours</span>
     </div>
     <div class="ld-lock"><span class="ld-lock-text"></span></div>
     <div class="ld-body">
       <div class="ld-rail">
-        <div class="ld-routebox" title="The contract, its TT Security ID and the account its orders go to">
+        <div class="ld-routebox" title="The contract, its Stellar Security ID and the account its orders go to">
           <div class="ld-rb-sym">&mdash;</div>
           <div class="ld-rb-id">&mdash;</div>
           <div class="ld-rb-acct">&mdash;</div>
@@ -363,8 +363,8 @@
           </select>
         </div>
         <div class="ld-quoting" title="How the Algo's orders are worked">&mdash;</div>
-        <button class="ld-quick ld-buy" disabled title="MANUAL mode: BUY at the offer (or at market) — reviewed, then sent to TT as a manual ticket. Off in ALGO mode.">BUY 1</button>
-        <button class="ld-quick ld-sell" disabled title="MANUAL mode: SELL at the bid (or at market) — reviewed, then sent to TT as a manual ticket. Off in ALGO mode.">SELL 1</button>
+        <button class="ld-quick ld-buy" disabled title="MANUAL mode: BUY at the offer (or at market) — reviewed, then sent to Stellar as a manual ticket. Off in ALGO mode.">BUY 1</button>
+        <button class="ld-quick ld-sell" disabled title="MANUAL mode: SELL at the bid (or at market) — reviewed, then sent to Stellar as a manual ticket. Off in ALGO mode.">SELL 1</button>
         <button class="ld-quick ld-flatten" disabled title="Close the open position at market, NOW, by its own tickets (77=C) — and stand this contract's Algo down. A close already working is escalated, never doubled.">CLOSE ALL</button>
         <div class="ld-closelmt">
           <input class="ld-close-px" type="number" step="any" placeholder="Close @ limit" title="The price to rest ONE closing limit at, for the whole open position, carrying its tickets. It waits there; CLOSE ALL crosses now.">
@@ -393,10 +393,10 @@
         <table>
           <thead><tr>
             <th class="c-work" title="Work — our working orders at this level (blue a buy, red a sell), and where the Algo's levels sit: TP, SL, BE, the band and the mean">Work</th>
-            <th class="c-bid" title="Bids — the size TT shows bid at this price; with Depth: FULL, at every level of the book">Bids</th>
+            <th class="c-bid" title="Bids — the size Stellar shows bid at this price; with Depth: FULL, at every level of the book">Bids</th>
             <th class="c-price" title="The contract's price, one row per increment">Price</th>
-            <th class="c-ask" title="Asks — the size TT shows offered at this price; with Depth: FULL, at every level of the book">Asks</th>
-            <th class="c-ltq" title="LTQ — TT's last trade is marked here (a print, not an order); our own fills show their size">LTQ</th>
+            <th class="c-ask" title="Asks — the size Stellar shows offered at this price; with Depth: FULL, at every level of the book">Asks</th>
+            <th class="c-ltq" title="LTQ — Stellar's last trade is marked here (a print, not an order); our own fills show their size">LTQ</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -405,7 +405,7 @@
     </div>
     <div class="ld-footer">
       <span class="ld-feed" title="The staleness and jump guards — a guard may withhold an order; it never prevents a close">&mdash;</span>
-      <button class="btn ld-refresh" title="Ask TT for this contract's prices again (Market Data Request). Use it when the age here keeps climbing.">&#8635; Feed</button><button class="btn ld-depth" title="The order book: TOP shows the best bid and offer only; FULL asks TT for every level (MarketDepth 264=0) and shows each one's size at its price">Depth: TOP</button>
+      <button class="btn ld-refresh" title="Ask Stellar for this contract's prices again (Market Data Request). Use it when the age here keeps climbing.">&#8635; Feed</button><button class="btn ld-depth" title="The order book: TOP shows the best bid and offer only; FULL asks Stellar for every level (MarketDepth 264=0) and shows each one's size at its price">Depth: TOP</button>
       <table class="ld-book"><thead><tr><th class="l">contract</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Age</th></tr></thead><tbody><tr>
         <td class="l ld-bk-sym">&mdash;</td><td class="b ld-bk-bid">&mdash;</td><td class="a ld-bk-ask">&mdash;</td><td class="ld-bk-spr">&mdash;</td><td class="ld-bk-age">&mdash;</td>
       </tr></tbody></table>

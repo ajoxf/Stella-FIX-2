@@ -27,7 +27,7 @@ design decision below follows from them:
    spread is bought and sold like an outright. This deletes the hardest half of
    a spread trading system — do not reintroduce it.
 2. **The trader does not trade on this screen.** Discretionary orders go
-   through TT's own front end. This screen exists to run the algo and to show
+   through Stellar's own front end. This screen exists to run the algo and to show
    why it is or is not trading. The only buttons that send anything are the
    algo switch, a per-contract **CLOSE NOW**, and the global **KILL ALL** — the
    last two are safety, not trading.
@@ -769,7 +769,7 @@ cannot explain is listed **UNCLAIMED** on a red banner, never closed
 automatically, with *adopt* and *close it* offered to a person.
 
 At startup **and** at shutdown, **cancel our own working orders**, scoped to
-our `ClOrdID` prefix / account so a hand order placed in TT is never touched.
+our `ClOrdID` prefix / account so a hand order placed in Stellar is never touched.
 
 ---
 

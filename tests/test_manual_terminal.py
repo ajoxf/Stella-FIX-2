@@ -22,8 +22,10 @@ def terminal(tmp_path):
     terminal.poll()
     result = terminal.lookup({'exchange':'CME', 'symbol':'ES', 'security_type':'FUT'})
     for key, month in [('101','202612'), ('102','202703')]:
-        fields = {'35':'d', '320':result['request_id'], '48':key, '55':'ES', '207':'CME', '167':'FUT',
-                  '200':month, '107':'ES '+month, '15':'USD', '969':'0.25', '231':'50'}
+        # Stellar's Security List (y): one instrument, opened by its symbol.
+        fields = {'35':'y', '320':result['request_id'], '146':'1', '55':'ES', '15':'USD', '48':key,
+                  '200':month, '207':'CME', '461':'FXXXXX', '969':'0.25', '1146':'12.5',
+                  '560':'0', '893':'Y'}
         terminal.on_message('Market Data', fields, '\x01'.join(k+'='+v for k,v in fields.items())+'\x01')
         terminal.add({'security_id':key})
     return terminal
@@ -65,7 +67,11 @@ def test_review_is_required_idempotent_and_allows_zero_negative_prices(terminal)
     terminal.submit({'token':preview['token'],'confirmed':True})
     assert len(sent(terminal,'D')) == 1
     fields = sent(terminal,'D')[0]
-    assert fields['44']=='0' and fields['48']=='101' and fields['22']=='96' and fields['1028']=='Y'
+    # Stellar names the instrument by symbol, CFI code, maturity and exchange
+    # — never by Security ID — and has no manual-order flag (1028).
+    assert fields['44']=='0' and fields['55']=='ES' and fields['461']=='FXXXXX'
+    assert fields['200']=='202612' and fields['207']=='CME' and fields['21']=='1'
+    assert '48' not in fields and '22' not in fields and '1028' not in fields
     assert terminal.orders[result['order_id']]['status']=='PENDING'
     assert terminal.preview(ticket())['ticket']['price']=='-0.5'
 
@@ -86,7 +92,7 @@ def test_manual_risk_limits_persist_and_are_rechecked_at_submit(terminal):
 
 def test_kill_switch_still_permits_risk_reducing_close(terminal):
     preview=terminal.preview(ticket(quantity='1'));oid=terminal.submit({'token':preview['token'],'confirmed':True})['order_id']
-    report(terminal,{'35':'8','11':oid,'37':'TT-1','39':'2','150':'2','17':'EXEC-CLOSE','14':'1','151':'0','32':'1','31':'10','6':'10'})
+    report(terminal,{'35':'8','11':oid,'37':'ST-1','39':'2','150':'2','17':'EXEC-CLOSE','14':'1','151':'0','32':'1','31':'10','6':'10'})
     terminal.set_risk({'trading_enabled': False, 'max_order_qty': 0,
                        'max_open_qty_per_instrument': 0, 'daily_loss_limit': 0})
     close = terminal.preview_close({'order_id': oid})
@@ -97,8 +103,8 @@ def test_kill_switch_still_permits_risk_reducing_close(terminal):
 
 @pytest.mark.parametrize('changes', [dict(quantity='NaN'),dict(quantity='0'),dict(price='Infinity'),dict(price='0.11'),
     dict(order_type='STOP',stop_price=''),dict(order_type='STOP_LIMIT',stop_price='1',price=''),
-    dict(tif='GTD',expire_date=''),dict(display_qty='3'),dict(account='bad\x0135=D'),
-    dict(tif='GTC',cancel_on_disconnect=True),dict(tif='IOC',min_qty='1')])
+    dict(tif='GTD',expire_date='2099-12-31'),dict(order_type='POST_ONLY'),dict(account='bad\x0135=D'),
+    dict(tif='AT_OPEN'),dict(order_type='MARKET_ON_CLOSE')])
 def test_invalid_tickets_never_transmit(terminal, changes):
     with pytest.raises(ValueError): terminal.preview(ticket(**changes))
     assert not sent(terminal,'D')
@@ -113,21 +119,31 @@ def test_supported_order_types_have_required_fields(terminal, kind):
     assert ('44' in fields)==(kind in ('LIMIT','STOP_LIMIT','LIMIT_ON_CLOSE','POST_ONLY'))
 
 
-def test_gtd_and_cme_fok_parameters(terminal):
-    p=terminal.preview(ticket(tif='GTD',expire_date='2099-12-31'))
-    assert dict(p['fields'])['432']=='20991231'
-    fields=dict(terminal.preview(ticket(tif='FOK'))['fields'])
-    assert fields['59']=='3' and fields['110']=='2'
+def test_stellars_times_in_force_go_as_its_spec_numbers_them(terminal):
+    """Stellar lists DAY 0, GTC 1, IOC 3 and FOK 4 — FOK is its own value,
+    never rewritten as an IOC with a minimum quantity."""
+    for tif, value in (('DAY', '0'), ('GTC', '1'), ('IOC', '3'), ('FOK', '4')):
+        fields=dict(terminal.preview(ticket(tif=tif))['fields'])
+        assert fields['59']==value and '110' not in fields
+
+
+def test_every_order_names_the_stellar_user_and_account_in_the_parties(terminal):
+    terminal.gateway.venue.username = 'phil'
+    fields = terminal.preview(ticket())['fields']
+    at = fields.index(('453', '2'))
+    assert fields[at + 1:at + 7] == [('448', 'phil'), ('447', 'D'), ('452', '11'),
+                                     ('448', 'UAT_ACCOUNT'), ('447', 'D'), ('452', '24')]
+    assert ('1', 'UAT_ACCOUNT') not in fields             # never tag 1
 
 
 def test_cancel_waits_for_ack_and_replace_preserves_id_chain(terminal):
     preview=terminal.preview(ticket())
     result=terminal.submit({'token':preview['token'],'confirmed':True})
     oid=result['order_id']
-    report(terminal,{'35':'8','11':oid,'37':'TT-1','39':'0','150':'0','14':'0','151':'2'})
+    report(terminal,{'35':'8','11':oid,'37':'ST-1','39':'0','150':'0','14':'0','151':'2'})
     terminal.manage({'order_id':oid,'quantity':'3','price':'0'},replace=True)
     fields=sent(terminal,'G')[0]
-    assert fields['41']==oid and fields['37']=='TT-1' and fields['44']=='0'
+    assert fields['41']==oid and fields['37']=='ST-1' and fields['44']=='0'
     assert terminal.orders[oid]['ticket']['quantity']=='2'
     report(terminal,{'35':'8','11':fields['11'],'41':oid,'39':'0','150':'5','14':'0','151':'3'})
     assert terminal.orders[oid]['ticket']['quantity']=='3'
@@ -143,7 +159,7 @@ def test_cancel_waits_for_ack_and_replace_preserves_id_chain(terminal):
 
 def test_fills_deduplicate_and_restart_does_not_resend(terminal):
     p=terminal.preview(ticket());oid=terminal.submit({'token':p['token'],'confirmed':True})['order_id']
-    fill={'35':'8','11':oid,'37':'TT-1','39':'1','150':'1','17':'EXEC1','14':'1','151':'1','32':'1','31':'-0.5','6':'-0.5'}
+    fill={'35':'8','11':oid,'37':'ST-1','39':'1','150':'1','17':'EXEC1','14':'1','151':'1','32':'1','31':'-0.5','6':'-0.5'}
     report(terminal,fill);report(terminal,fill)
     assert len(terminal.snapshot()['fills'])==1
     path=terminal.db.execute('PRAGMA database_list').fetchone()[2]
@@ -177,7 +193,7 @@ def test_a_manual_fill_is_measured_against_the_touch_when_it_was_sent(terminal):
     preview = terminal.preview(ticket(order_type='MARKET', quantity='1', price=''))
     oid = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
     assert terminal.orders[oid]['decision']['price'] == 10.25
-    report(terminal, {'35':'8','11':oid,'37':'TT-1','39':'2','150':'2','17':'EX1',
+    report(terminal, {'35':'8','11':oid,'37':'ST-1','39':'2','150':'2','17':'EX1',
                       '14':'1','151':'0','32':'1','31':'10.75','6':'10.75'})
     fill = terminal.snapshot()['fills'][0]
     assert fill['slippage_points'] == pytest.approx(0.5)
@@ -192,7 +208,7 @@ def test_a_passive_limit_filled_inside_the_spread_is_an_improvement(terminal):
     quote(terminal, 10.0, 10.25)
     preview = terminal.preview(ticket(price='10', quantity='1'))
     oid = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
-    report(terminal, {'35':'8','11':oid,'37':'TT-1','39':'2','150':'2','17':'EX2',
+    report(terminal, {'35':'8','11':oid,'37':'ST-1','39':'2','150':'2','17':'EX2',
                       '14':'1','151':'0','32':'1','31':'10','6':'10'})
     assert terminal.snapshot()['fills'][0]['slippage_ticks'] == pytest.approx(-1.0)
 
@@ -201,7 +217,7 @@ def test_no_fresh_quote_at_send_is_unmeasured_never_zero(terminal):
     quote(terminal, 10.0, 10.25, age_sec=600)            # stale
     preview = terminal.preview(ticket(order_type='MARKET', quantity='1', price=''))
     oid = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
-    report(terminal, {'35':'8','11':oid,'37':'TT-1','39':'2','150':'2','17':'EX3',
+    report(terminal, {'35':'8','11':oid,'37':'ST-1','39':'2','150':'2','17':'EX3',
                       '14':'1','151':'0','32':'1','31':'10.25','6':'10.25'})
     fill = terminal.snapshot()['fills'][0]
     assert fill['slippage_ticks'] is None
@@ -214,12 +230,12 @@ def test_a_close_is_measured_as_an_exit_on_its_own_side(terminal):
     quote(terminal, 10.0, 10.25)
     preview = terminal.preview(ticket(order_type='MARKET', quantity='1', price=''))
     oid = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
-    report(terminal, {'35':'8','11':oid,'37':'TT-1','39':'2','150':'2','17':'EX4',
+    report(terminal, {'35':'8','11':oid,'37':'ST-1','39':'2','150':'2','17':'EX4',
                       '14':'1','151':'0','32':'1','31':'10.25','6':'10.25'})
     quote(terminal, 11.0, 11.25)
     close = terminal.preview_close({'order_id': oid})
     cid = terminal.submit({'token': close['token'], 'confirmed': True})['order_id']
-    report(terminal, {'35':'8','11':cid,'37':'TT-2','39':'2','150':'2','17':'EX5',
+    report(terminal, {'35':'8','11':cid,'37':'ST-2','39':'2','150':'2','17':'EX5',
                       '14':'1','151':'0','32':'1','31':'10.75','6':'10.75'})
     summary = terminal.snapshot()['slippage']
     assert summary['exit']['measured'] == 1
@@ -233,7 +249,7 @@ def test_a_close_with_a_price_rests_as_a_limit_close(terminal):
     — and, the control, without a price it crosses at MARKET."""
     preview = terminal.preview(ticket(quantity='2'))
     oid = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
-    report(terminal, {'35': '8', '11': oid, '37': 'TT-1', '39': '2', '150': '2', '17': 'EX-L',
+    report(terminal, {'35': '8', '11': oid, '37': 'ST-1', '39': '2', '150': '2', '17': 'EX-L',
                       '14': '2', '151': '0', '32': '2', '31': '10', '6': '10'})
     limit = terminal.preview_close({'order_id': oid, 'price': '10.5'})
     assert limit['ticket']['order_type'] == 'LIMIT' and limit['ticket']['price'] == '10.5'

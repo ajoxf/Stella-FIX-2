@@ -1,8 +1,8 @@
 """A MARKET order goes as a LIMIT through the touch, immediate-or-cancel —
 and a close that does not happen is said loudly.
 
-Found on TT UAT: a manual BUY at market to close a short was REJECTED by
-CME, again and again — "Order price is outside bands: Bid of 7941.25
+Found on the TT desk this was ported from: a manual BUY at market to close
+a short was REJECTED by CME, again and again — "Order price is outside bands: Bid of 7941.25
 violates High Band 7872.00". A bare market order is given a protection
 price by the exchange, and outside the price band it is refused: the
 position stayed open, and the screen said so only in one line of an orders
@@ -49,7 +49,7 @@ def market_ticket(side='BUY'):
 
 
 def test_a_manual_market_ticket_goes_as_a_limit_through_the_offer(terminal):
-    quote(terminal, 9050, 9052)                     # 90.50 / 90.52
+    quote(terminal, 90.50, 90.52)                     # 90.50 / 90.52
     terminal.market_ticks = lambda sid: 2
     t = terminal.preview(market_ticket('BUY'))['ticket']
     assert (t['order_type'], t['price'], t['tif']) == ('LIMIT', '90.54', 'IOC')
@@ -59,40 +59,30 @@ def test_a_manual_market_ticket_goes_as_a_limit_through_the_offer(terminal):
     sent = terminal.submit({'token': terminal.preview(market_ticket())['token'],
                             'confirmed': True})
     fields = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k == 'D'][-1]
-    assert fields['40'] == '2' and fields['59'] == '3' and fields['44'] == '9054'
+    assert fields['40'] == '2' and fields['59'] == '3' and fields['44'] == '90.54'
     assert sent['ok']
 
 
 def test_with_zero_ticks_a_manual_market_ticket_is_a_true_market_order(terminal):
     """The control."""
-    quote(terminal, 9050, 9052)
+    quote(terminal, 90.50, 90.52)
     terminal.market_ticks = lambda sid: 0
     t = terminal.preview(market_ticket())['ticket']
     assert t['order_type'] == 'MARKET' and t['price'] is None
 
 
-def test_at_market_on_cme_never_carries_a_min_qty(terminal):
-    """TT: a CME IOC (59=3) WITH a MinQty (110) is a fill-or-kill. A market
-    ticket sent as a marketable IOC drops the MinQty, or "at market" becomes
-    all-or-nothing."""
-    quote(terminal, 9050, 9052)
-    terminal.market_ticks = lambda sid: 2
-    terminal.submit({'token': terminal.preview(dict(market_ticket(), quantity='3',
-                                                    min_qty='2'))['token'],
-                     'confirmed': True})
-    fields = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k == 'D'][-1]
-    assert fields['59'] == '3' and '110' not in fields
-
-
-def test_a_true_market_ticket_keeps_its_min_qty(terminal):
-    """The control: with no conversion to IOC the MinQty is the trader's."""
-    quote(terminal, 9050, 9052)
-    terminal.market_ticks = lambda sid: 0
-    terminal.submit({'token': terminal.preview(dict(market_ticket(), quantity='3',
-                                                    min_qty='2'))['token'],
-                     'confirmed': True})
-    fields = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k == 'D'][-1]
-    assert fields['40'] == '1' and fields['110'] == '2'
+def test_a_market_ticket_never_carries_a_min_qty_stellar_does_not_list(terminal):
+    """Stellar's Order Router lists no MinQty (110): neither an at-market
+    ticket sent as an IOC nor a true market order carries one."""
+    quote(terminal, 90.50, 90.52)
+    for ticks in (2, 0):
+        terminal.market_ticks = lambda sid, n=ticks: n
+        terminal.submit({'token': terminal.preview(dict(market_ticket(), quantity='3',
+                                                        min_qty='2'))['token'],
+                         'confirmed': True})
+        fields = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k == 'D'][-1]
+        assert '110' not in fields
+        assert fields['40'] == ('2' if ticks else '1')
 
 
 def test_a_manual_market_ticket_with_no_fresh_quote_still_goes(terminal):
@@ -103,14 +93,14 @@ def test_a_manual_market_ticket_with_no_fresh_quote_still_goes(terminal):
     assert t['order_type'] == 'MARKET'
 
 
-def test_a_refused_manual_close_is_said_in_tts_words(terminal):
-    quote(terminal, 9050, 9052)
+def test_a_refused_manual_close_is_said_in_stellars_words(terminal):
+    quote(terminal, 90.50, 90.52)
     preview = terminal.preview(dict(market_ticket('SELL'), order_type='LIMIT', price='90.50'))
     entry = terminal.submit({'token': preview['token'], 'confirmed': True})['order_id']
     order = terminal.orders[entry]
     terminal.on_message('Order Routing', {'35': '8', '11': order['current_id'], '37': 'T1',
                                           '150': '2', '39': '2', '17': 'E1', '32': '1',
-                                          '31': '9050', '6': '9050', '14': '1', '151': '0'}, '')
+                                          '31': '90.50', '6': '0', '14': '1', '151': '0'}, '')
     assert terminal.close_alerts() == []            # open, no close tried yet
     close = terminal.preview_close({'order_id': entry})
     cid = terminal.submit({'token': close['token'], 'confirmed': True})['order_id']
@@ -126,7 +116,7 @@ def test_a_refused_manual_close_is_said_in_tts_words(terminal):
     cid2 = terminal.submit({'token': again['token'], 'confirmed': True})['order_id']
     terminal.on_message('Order Routing', {'35': '8', '11': terminal.orders[cid2]['current_id'],
                                           '150': '2', '39': '2', '17': 'E2', '32': '1',
-                                          '31': '9052', '6': '9052', '14': '1', '151': '0'}, '')
+                                          '31': '90.52', '6': '0', '14': '1', '151': '0'}, '')
     assert terminal.close_alerts() == []
 
 
@@ -134,14 +124,14 @@ def test_the_algos_close_goes_through_the_touch_and_a_refusal_is_loud(desk):
     d = desk.d
     run = desk.runner()
     # One tick wide: the spread alone ($10) does not reach the 2% stop ($20).
-    desk.tt.move('CL1', 9051, 9052)
+    desk.tt.move('CL1', 90.51, 90.52)
     run.until('the one-tick book', lambda s: run.contract(s)['market'].get('bid') == 90.51)
     assert d.command('execution', '', {'mode': 'LIVE', 'confirm': True})['ok']
     assert d.command('uat_order', 'clz6', {'side': 'BUY', 'order_type': 'MARKET'})['ok']
     run.until('long', lambda s: run.algo_position(s))
     entry = desk.tt.orders_in[-1]
     assert entry['40'] == '2' and entry['59'] == '3'           # through the offer, IOC
-    assert float(entry['44']) == 9054                           # 90.52 + 2 ticks, FIX units
+    assert float(entry['44']) == 90.54                          # 90.52 + 2 ticks
     desk.tt.reject_text = BAND
     assert d.command('close_now', 'clz6')['ok']
     alert = run.until('the close alert', lambda s: run.contract(s).get('close_alert'))
@@ -155,12 +145,12 @@ def test_the_algos_close_goes_through_the_touch_and_a_refusal_is_loud(desk):
     assert run.contract().get('close_alert') is None
 
 
-def test_every_clordid_we_send_fits_tts_20_characters(terminal):
-    """TT FIX: "Maximum length of the tag 11 is (20) characters." Manual
-    tickets were FTM- + 32 hex = 36."""
+def test_every_clordid_we_send_fits_stellars_32_characters(terminal):
+    """Stellar: ClOrdID (11) is "a string up to 32" in length. Ours are 20
+    or fewer — FTM- + 16 hex, FT-<ms hex>-<base 36>."""
     from types import SimpleNamespace
     from fixtrader.gateway import AlgoOrderRouter
-    quote(terminal, 9050, 9052)
+    quote(terminal, 90.50, 90.52)
     p = terminal.preview(dict(market_ticket(), order_type='LIMIT', price='90.40'))
     oid = terminal.submit({'token': p['token'], 'confirmed': True})['order_id']
     order = terminal.orders[oid]
@@ -168,7 +158,7 @@ def test_every_clordid_we_send_fits_tts_20_characters(terminal):
                                           '150': '0', '39': '0', '17': 'A9', '14': '0',
                                           '151': '1'}, '')
     terminal.manage({'order_id': oid, 'price': '90.30', 'quantity': '1'}, replace=True)
-    sent = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k in 'DFG']
+    sent = [dict(f) for k, f in terminal.gateway._sessions['Order Routing'].sent if k in ('D', 'F', 'G')]
     assert sent and all(len(f['11']) <= 20 for f in sent), [f['11'] for f in sent]
     r = AlgoOrderRouter(SimpleNamespace(venue=None, contracts=[], _redact=lambda t: t))
     r.seq = 99999
@@ -181,7 +171,7 @@ def test_the_review_shows_the_spread_and_flags_it_wider_than_the_limit(terminal)
     """Found on UAT gold, 4218.0 / 4230.0: an order at market crosses the
     spread, and on a thin book that is the whole cost of the trade. The review
     says it — in money — and flags it WIDE over the contract's limit."""
-    quote(terminal, 9050, 9052)                     # 90.50 / 90.52: 2 ticks
+    quote(terminal, 90.50, 90.52)                     # 90.50 / 90.52: 2 ticks
     terminal.spread_limit = lambda sid: 1
     book = terminal.preview(market_ticket())['book']
     assert book['ticks'] == 2 and book['money'] == 20.0
@@ -190,7 +180,7 @@ def test_the_review_shows_the_spread_and_flags_it_wider_than_the_limit(terminal)
 
 def test_a_spread_inside_the_limit_or_with_no_limit_is_not_flagged(terminal):
     """The control — and the review is never refused for it: the trader decides."""
-    quote(terminal, 9050, 9052)
+    quote(terminal, 90.50, 90.52)
     terminal.spread_limit = lambda sid: 3
     review = terminal.preview(market_ticket())
     assert review['ok'] and not review['book']['wide'] and 'WIDER' not in review['book']['text']

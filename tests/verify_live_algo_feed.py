@@ -1,4 +1,4 @@
-"""Read-only TT UAT smoke check: python tests/verify_live_algo_feed.py."""
+"""Read-only Stellar UAT smoke check: python tests/verify_live_algo_feed.py."""
 import os
 import argparse
 import sys

@@ -102,8 +102,8 @@ class ContractRuntime:
         #: Touches raised but not yet written; the engine drains these.
         self.pending_touches: List[Any] = []
         self.halted_reason: Optional[str] = None
-        #: TT's display factor this contract's prices are read in, as last
-        #: seen; and why entries wait when TT has not said it.
+        #: The price factor this contract's prices are read in (1 on Stellar),
+        #: as last seen; and why entries wait when it is not known.
         #: A close that did NOT happen — refused by the venue, or a
         #: fill-or-cancel close that found nothing — while the position is
         #: still open. Said loudly on the ladder and the Trading Monitor
@@ -150,7 +150,7 @@ class Engine:
             bool(config.settings.get('AUTO_TRADE_ENABLED', True))
             if not hasattr(gateway, 'venue') else False)
         self.killed: bool = False
-        #: PAPER: the gateway can see the market but cannot trade it — TT
+        #: PAPER: the gateway can see the market but cannot trade it — Stellar
         #: today. The signal still runs end to end, filled at the live bid
         #: or offer inside this process; no order is built for any venue.
         #: LIVE: the Algo's orders go to the venue. OFF after every restart
@@ -163,7 +163,7 @@ class Engine:
         #: Our orders recorded as working when the engine last ran: cancelled
         #: once the session is up (the startup sweep, scoped to our ids).
         self._swept_previous: bool = False
-        #: The Order Routing logon a FIX Recovery was last asked for.
+        #: The Order Router logon the order status sweep was last run for.
         self._recovered_logon: str = ''
         self._paper_seq: int = 0
         #: WHO trades each contract: its Algo or a person, never both on the
@@ -357,7 +357,7 @@ class Engine:
         if router is not None and hasattr(router, 'take_tape'):
             tape = router.take_tape()
             if tape and self.db is not None:
-                self.db.save_tt_fills(tape)
+                self.db.save_venue_fills(tape)
         self._venue_housekeeping()
 
         # The FIX receiver publishes normalized, coalesced updates. Consume
@@ -425,16 +425,15 @@ class Engine:
 
     def _price_units(self, rt: ContractRuntime, now: datetime) -> bool:
         """Keep this contract's recorded prices in the units the screen
-        shows. TT sends FIX prices; the terminal turns them into trader
-        prices with TT's display factor (9787: CL 9057 x 0.01 = 90.57). The
-        recording the band is rebuilt from was made before that conversion,
-        in FIX units — read beside today's prices it is a 100x "move" and a
-        z of thousands. So when the factor is seen (or changes) the
-        recording is rescaled ONCE, the factor recorded beside it, and the
-        band, the touch study and the day's strip rebuilt from it.
+        shows. Stellar's prices ARE trader prices (a factor of 1 for every
+        instrument it knows), so on Stellar this records the factor once and
+        never rescales; the mechanism is kept so that a recording made in
+        other units is rescaled ONCE, the factor recorded beside it, and the
+        band, the touch study and the day's strip rebuilt from it — never
+        mixed with the new.
 
-        Returns False while TT has not said the factor: nothing is recorded
-        then, and entries wait (`units_note`)."""
+        Returns False while the terminal does not know the instrument at
+        all: nothing is recorded then, and entries wait (`units_note`)."""
         terminal = getattr(self.gateway, 'terminal', None)
         if terminal is None or not hasattr(terminal, 'price_factor'):
             rt.units_note = None                     # the simulator: one unit
@@ -443,9 +442,8 @@ class Engine:
         factor = terminal.price_factor(str(getattr(rt.contract, 'security_id',
                                                    '') or ''))
         if factor is None:
-            rt.units_note = ("TT has not sent this contract's display factor "
-                             "(9787) — prices may be in TT's FIX units, so "
-                             "nothing is recorded and entries wait")
+            rt.units_note = ("this contract is not known to the Market Data "
+                             "session yet — nothing is recorded and entries wait")
             rt.units_seen = None
             return False
         factor = float(factor)
@@ -457,11 +455,11 @@ class Engine:
         if self.db is not None and (stored is None or abs(ratio - 1.0) > 1e-12):
             n = self.db.rescale_prices(key, ratio, factor)
             if abs(ratio - 1.0) > 1e-12:
-                logger.warning("%s recorded prices rescaled x%g to TT's "
-                               "display factor %g (%d samples)", key, ratio,
+                logger.warning("%s recorded prices rescaled x%g to the "
+                               "venue's price factor %g (%d samples)", key, ratio,
                                factor, n)
                 self._say(rt, "UNITS", f"recorded prices brought to trader "
-                          f"units (x{ratio:g}, TT display factor {factor:g})")
+                          f"units (x{ratio:g}, price factor {factor:g})")
         pos = rt.position
         if pos is not None and abs(ratio - 1.0) > 1e-12:
             # Opened on FIX-unit fills: its prices and frozen levels too.
@@ -646,8 +644,8 @@ class Engine:
         if rt.units_note:
             health = rt.units_note
         elif self.recovery_running():
-            health = ('TT FIX Recovery is replaying what was missed — entries '
-                      'wait until it finishes')
+            health = ('Stellar is answering for the orders of ours that were '
+                      'working — entries wait until it finishes')
         elif self._too_wide(contract, settings, book):
             health = self._too_wide(contract, settings, book)
         elif status['stale']:
@@ -952,7 +950,7 @@ class Engine:
         rt = self.runtimes.get(event.contract_key)
         contract = rt.contract if rt else None
         intent = self.executor.intent_of(event.clordid)
-        # A fill already in the book — replayed by TT FIX Recovery, or
+        # A fill already in the book — resent by Stellar after a logon, or
         # resent — updates the order and is NEVER applied to a position again.
         fill = getattr(event, 'fill', None)
         booked = bool(fill is not None and self.db is not None
@@ -982,7 +980,7 @@ class Engine:
         if event.kind in ("FILL", "PARTIAL") and event.fill is not None:
             self._apply_fill(rt, event, intent, now)
         elif event.kind == "TRADE_CHANGE":
-            # TT busted or corrected an earlier fill: never booked as a new
+            # Stellar busted or corrected an earlier fill: never booked as a new
             # one, and never quiet.
             self._say(rt, "REJECT", event.text)
             self.notify("REJECT", rt.contract.key, event.text)
@@ -1012,7 +1010,7 @@ class Engine:
                 f"{pos.qty:g} {rt.contract.name}")
         if event.kind == 'REJECTED':
             why = event.text or 'no reason given'
-            text = f"Your close was REJECTED — {held}. TT: {why}"
+            text = f"Your close was REJECTED — {held}. Stellar: {why}"
         elif event.kind in ('CANCELLED', 'EXPIRED') and marketable and filled <= 0:
             text = (f"Your close did not fill — the price moved before it got "
                     f"there; {held}. Press CLOSE ALL again, or Close @ LMT.")
@@ -1200,7 +1198,7 @@ class Engine:
     def _margin(self, contract, settings, qty) -> Optional[float]:
         """The margin the target is a percentage of: the one the operator
         ENTERED for the contract, and only where none was entered, what the
-        venue reports — TT reports none. One rule, used by the entry check
+        venue reports — Stellar reports none. One rule, used by the entry check
         and the position alike, so the target the entry was judged on is the
         target the position gets."""
         entered = costs_mod.configured_margin(settings, qty)
@@ -1435,8 +1433,8 @@ class Engine:
             return
         try:
             up = self.gateway.state().value == 'LOGGED_ON'
-            # TT: wait for its "Recovery is complete" — the replay of what we
-            # missed — before cancelling a previous run's orders.
+            # Wait for Stellar's resend of what the logon showed was missed
+            # before cancelling a previous run's orders.
             ready = getattr(self.gateway, 'order_session_ready', None)
             up = up and (ready() if callable(ready) else True)
         except Exception:                                # noqa: BLE001
@@ -1454,9 +1452,10 @@ class Engine:
                             if self.unclaimed else "")
 
     def _recover_after_logon(self) -> None:
-        """After each Order Routing logon — and after the previous run's
-        orders are adopted, so a replayed fill is applied as what it was —
-        ask TT FIX Recovery for what was missed while the line was down."""
+        """After each Order Router logon — and after the previous run's
+        orders are adopted, so a resent fill is applied as what it was —
+        ask Stellar for the status of every order of ours still recorded as
+        working (the Order Status sweep, `FixGateway.recover_missed`)."""
         logon = getattr(self.gateway, 'order_session_logon', None)
         recover = getattr(self.gateway, 'recover_missed', None)
         if not callable(logon) or not callable(recover):
@@ -1468,7 +1467,7 @@ class Engine:
         try:
             recover()
         except Exception:                                # noqa: BLE001
-            logger.exception("FIX Recovery could not be started")
+            logger.exception("the order status sweep could not be started")
 
     @staticmethod
     def _too_wide(contract, settings, book) -> Optional[str]:
@@ -1501,7 +1500,7 @@ class Engine:
     def recover_now(self, window: bool = False) -> Dict[str, Any]:
         recover = getattr(self.gateway, 'recover_missed', None)
         if not callable(recover):
-            return {'ok': False, 'error': 'FIX Recovery is a TT service; this venue has none.'}
+            return {'ok': False, 'error': 'The order status sweep is a Stellar service; this venue has none.'}
         if self.gateway.state().value != 'LOGGED_ON':
             return {'ok': False, 'error': 'Order Routing is not logged on.'}
         return recover('window' if window else 'auto')
@@ -1581,16 +1580,16 @@ class Engine:
                  f"({venue.environment}), account {venue.account or '—'} — "
                  f"for every contract whose Algo trades."]
         if readable:
-            lines.append('TT positions were read: the book is reconciled.' +
-                         (f" {len(self.unclaimed)} position(s) at TT this book "
+            lines.append('Stellar positions were read: the book is reconciled.' +
+                         (f" {len(self.unclaimed)} position(s) at Stellar this book "
                           f"cannot explain are listed as UNCLAIMED and will "
                           f"never be touched." if self.unclaimed else ''))
         else:
-            lines.append('TT positions could NOT be read (' +
+            lines.append('Stellar positions could NOT be read (' +
                          (status.get('why') or status.get('status') or
                           'unknown') + f'). Sending to {word} is your word that this '
                          "book's own fills are the record: a position opened "
-                         'in TT by other means on this account is invisible '
+                         'in Stellar by other means on this account is invisible '
                          'to the Algo.')
         if not confirm:
             return {'ok': False, 'confirm': True, 'text': ' '.join(lines)}
@@ -1716,14 +1715,14 @@ class Engine:
                 'clordid': wo.clordid}
 
     def refresh_feed(self, key: str) -> Dict[str, Any]:
-        """↻ Feed on the ladder: ask TT for this contract's prices again
+        """↻ Feed on the ladder: ask Stellar for this contract's prices again
         (Market Data Request 263=2 then 263=1). The book is not touched."""
         rt = self.runtimes.get(key)
         terminal = getattr(self.gateway, 'terminal', None)
         if rt is None:
             return {'ok': False, 'error': "no such contract"}
         if terminal is None:
-            return {'ok': False, 'error': "the simulator has no TT "
+            return {'ok': False, 'error': "the simulator has no Stellar "
                     "subscription to refresh"}
         sid = str(getattr(rt.contract, 'security_id', '') or '')
         try:
@@ -1738,15 +1737,15 @@ class Engine:
                 terminal._subscribe(sid)
         except ConnectionError as e:
             return {'ok': False, 'error': str(e)}
-        self._say(rt, "FEED", "prices re-requested from TT")
+        self._say(rt, "FEED", "prices re-requested from Stellar")
         return {'ok': True}
 
     def uat_order(self, key: str, side: str, order_type: str,
                   price=None, qty=None) -> Dict[str, Any]:
         """UAT ONLY: have the Algo send ONE opening order now, through its
-        own order path — the executor, an `FT-` ClOrdID, 77=O, 1028=N, the
-        venue's account — exactly as a signal would, so the path can be
-        tested on TT UAT without waiting for one. A LIMIT is pinned at the
+        own order path — the executor, an `FT-` ClOrdID, 77=O, the
+        venue's account (452=24) — exactly as a signal would, so the path can be
+        tested on Stellar UAT without waiting for one. A LIMIT is pinned at the
         price given (never re-pegged or timed out). The fill becomes the
         Algo's position like any other, and closes like any other (CLOSE
         NOW, Close @ LMT).
@@ -1766,7 +1765,7 @@ class Engine:
                     f'— this one is {env or "not a venue"}'}
         if self.paper:
             return {'ok': False, 'error': 'Execution is PAPER — arm LIVE on '
-                    'the taskbar first: a test order goes to TT UAT'}
+                    'the taskbar first: a test order goes to Stellar UAT'}
         if self.killed:
             return {'ok': False, 'error': 'KILL ALL is on'}
         held = self.algo_business(key) + self.manual_business(key)
@@ -1807,7 +1806,7 @@ class Engine:
         return {'ok': True, 'clordid': wo.clordid}
 
     def set_depth(self, key: str, on: bool) -> Dict[str, Any]:
-        """The ladder's Depth button: ask TT for the FULL book on this
+        """The ladder's Depth button: ask Stellar for the FULL book on this
         contract (Market Data Request 264=0) or only its top (264=1). Prices
         only — nothing about an order or a position changes."""
         rt = self.runtimes.get(key)
@@ -1815,16 +1814,16 @@ class Engine:
         if rt is None:
             return {'ok': False, 'error': "no such contract"}
         if terminal is None:
-            return {'ok': False, 'error': "the simulator has no TT book to "
+            return {'ok': False, 'error': "the simulator has no Stellar book to "
                     "ask for depth"}
         sid = str(getattr(rt.contract, 'security_id', '') or '')
         if not sid:
-            return {'ok': False, 'error': "this contract has no TT Security ID"}
+            return {'ok': False, 'error': "this contract has no Stellar Security ID"}
         try:
             terminal.depth({'security_id': sid, 'enabled': bool(on)})
         except (ConnectionError, ValueError) as e:
             return {'ok': False, 'error': str(e)}
-        self._say(rt, "FEED", "full depth requested from TT" if on
+        self._say(rt, "FEED", "full depth requested from Stellar" if on
                   else "top of book only")
         return {'ok': True, 'full': bool(on)}
 
@@ -2018,7 +2017,7 @@ class Engine:
         return None
 
     def md_status(self, rt: ContractRuntime) -> Optional[Dict[str, str]]:
-        """Why this contract has prices from TT or not (`ManualTerminal.
+        """Why this contract has prices from Stellar or not (`ManualTerminal.
         feed_status`); None on the simulator."""
         terminal = getattr(self.gateway, 'terminal', None)
         if terminal is None or not hasattr(terminal, 'feed_status'):
@@ -2032,7 +2031,7 @@ class Engine:
         """Why the window has no mid, in words, or None when it has one.
 
         A blank window reads as "not subscribed". On a quiet UAT spread the
-        usual truth is that TT is quoting one side, or nothing yet — and the
+        usual truth is that Stellar is quoting one side, or nothing yet — and the
         statistics and the algo need BOTH sides, because the price is the mid.
         """
         book = rt.book
@@ -2176,7 +2175,7 @@ class Engine:
                 'hlo': dict(rt.hlo) if rt.hlo else None,
                 'last_trade': rt.last_trade,
                 'signal_alert': rt.signal_alert,
-                #: The book behind the ladder: every level TT sends, or None
+                #: The book behind the ladder: every level Stellar sends, or None
                 #: where there is none to read (the simulator, MD down).
                 'depth': (self.gateway.depth(key)
                           if hasattr(self.gateway, 'depth') else None),
@@ -2235,7 +2234,7 @@ class Engine:
                 'simulated': self.simulated,
                 'book_complete': self.book_complete,
                 'unclaimed': self.unclaimed,
-                #: TT FIX Recovery for Order Routing: the last run, in words.
+                #: The Order Status sweep after the last Order Router logon, in words.
                 'fix_recovery': self.recovery_status(),
                 #: An edited configuration is in force from the pass that
                 #: picked it up. Anything the engine could not adopt while

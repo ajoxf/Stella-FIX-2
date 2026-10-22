@@ -1,4 +1,4 @@
-/* Order tests: test every order flow on TT UAT.
+/* Order tests: test every order flow on Stellar UAT.
  *   1  pick a contract
  *   2  check automatically — the program runs each flow (fixtrader/uat.py)
  *      through the same commands the ladder and the Algo window send
@@ -92,15 +92,15 @@ function paint(body) {
   const b = $('ot-banner');
   if (uat) {
     b.className = 'ot-banner uat';
-    b.textContent = 'TT UAT — orders placed here are REAL orders on TT UAT (a test venue). ' +
+    b.textContent = 'Stellar UAT — orders placed here are REAL orders on Stellar UAT (a test venue). ' +
       'Nothing goes to a live market.';
   } else if (OT.env === 'PROD') {
     b.className = 'ot-banner prod';
     b.textContent = 'LIVE MARKET — order tests are off here. The last UAT results are kept below.';
   } else {
     b.className = 'ot-banner off';
-    b.textContent = 'Not connected to TT UAT (' + (OT.env || 'the engine is not up') +
-      ') — start the program on TT UAT to test orders.';
+    b.textContent = 'Not connected to Stellar UAT (' + (OT.env || 'the engine is not up') +
+      ') — start the program on Stellar UAT to test orders.';
   }
 }
 
@@ -167,7 +167,7 @@ async function refresh() {
     const ex = (snap.engine || {}).execution || {};
     OT.mode = ex.mode || null;
     OT.sendWord = ex.send_word || 'UAT';
-    $('ot-exec').textContent = 'ALGO ORDERS: ' + (ex.mode === 'LIVE' ? 'TT ' + OT.sendWord
+    $('ot-exec').textContent = 'ALGO ORDERS: ' + (ex.mode === 'LIVE' ? 'Stellar ' + OT.sendWord
       : ex.mode === 'PAPER' ? 'PAPER' : (ex.mode || DASH));
   } catch (e) { /* idem */ }
 }
@@ -185,19 +185,19 @@ async function run(kind, type) {
   const sel = $('ot-contract');
   const name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : contract;
   if (kind === 'algo' && OT.mode !== 'LIVE') {
-    // The Algo's orders go to TT UAT, not filled on paper: the engine's own
+    // The Algo's orders go to Stellar UAT, not filled on paper: the engine's own
     // words, confirmed once.
     const asked = await command('execution', '', { mode: 'LIVE' });
     if (!asked.ok && !asked.confirm) { toast('REJECT', 'Algo orders', asked.error || 'refused'); return; }
     if (asked.confirm) {
-      if (!await ask('Send the Algo\'s orders to TT UAT?', asked.text, 'Send to UAT')) return;
+      if (!await ask('Send the Algo\'s orders to Stellar UAT?', asked.text, 'Send to UAT')) return;
       const done = await command('execution', '', { mode: 'LIVE', confirm: true });
       if (!done.ok) { toast('REJECT', 'Algo orders', done.error || 'refused'); return; }
     }
   }
   const what = (kind === 'algo' ? 'the Algo\'s ' : 'manual ') + type + ' order flows';
   const yes = await ask('Check ' + what + ' on ' + name + '?',
-    `${ids.length} checks, ${qty} lot(s) per order. Real orders go to TT UAT; each check cancels and closes ` +
+    `${ids.length} checks, ${qty} lot(s) per order. Real orders go to Stellar UAT; each check cancels and closes ` +
     'what it placed, so the contract ends flat. Takes about a minute' +
     ($('ot-hits').checked ? ' — longer with the "wait for a fill" checks.' : '.'), 'Start');
   if (!yes) return;
@@ -217,7 +217,7 @@ $('ot-stop').onclick = async () => {
 };
 $('ot-clear').onclick = async () => {
   if (!await ask('Clear every result?', 'The ticks and failures on this page are forgotten — ' +
-      'automatic and by hand. Nothing is sent to TT.', 'Clear')) return;
+      'automatic and by hand. Nothing is sent to Stellar.', 'Clear')) return;
   const r = await postJSON('/api/order-tests/clear', {});
   toast(r.data.ok ? 'INFO' : 'REJECT', 'Order tests', r.data.text || r.data.error || '');
   $('ot-tried').dataset.built = '';

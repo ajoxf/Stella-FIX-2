@@ -29,9 +29,9 @@ $env:PYTHONUNBUFFERED = '1'
 # should have started the engine was gone. So errors are not fatal from
 # here on, and every line is passed on as plain text.
 $ErrorActionPreference = 'Continue'
-& $python start.py --fix --no-browser --config config.tt-uat.json `
-    --status (Join-Path $runtimeDirectory 'status.tt-uat.json') `
-    --commands (Join-Path $runtimeDirectory 'commands.tt-uat.jsonl') `
-    --results (Join-Path $runtimeDirectory 'results.tt-uat.json') `
+& $python start.py --fix --no-browser --config config.stellar-uat.json `
+    --status (Join-Path $runtimeDirectory 'status.stellar-uat.json') `
+    --commands (Join-Path $runtimeDirectory 'commands.stellar-uat.jsonl') `
+    --results (Join-Path $runtimeDirectory 'results.stellar-uat.json') `
     --port 8000 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $sessionLog
 exit $LASTEXITCODE

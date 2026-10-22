@@ -1,5 +1,5 @@
 """Close @ LMT on the desk ladder, CLOSE ALL over a working close, and the
-TT fills tape behind the Account page's Fills tab.
+Stellar fills tape behind the Account page's Fills tab.
 
 A Close @ LMT rests ONE closing limit at the trader's price, by the
 position's own tickets, and waits there: no re-peg, no timeout. CLOSE ALL
@@ -146,10 +146,10 @@ def test_close_all_with_nothing_working_sends_the_close(tmp_path):
     assert len(gw.sent_ids) == sent + 1 and rt.position is None
 
 
-# -- the TT fills tape ----------------------------------------------------------
+# -- the Stellar fills tape ----------------------------------------------------------
 
 def router():
-    gw = SimpleNamespace(venue=SimpleNamespace(name='TT', account='ACC'),
+    gw = SimpleNamespace(venue=SimpleNamespace(name='Stellar', account='ACC'),
                          contracts=[SimpleNamespace(key='fef', security_id='777')],
                          _redact=lambda t: t)
     return AlgoOrderRouter(gw)
@@ -157,14 +157,14 @@ def router():
 
 def report(**over):
     f = {'35': '8', '150': 'F', '39': '2', '17': 'E1', '11': 'OTHER-1',
-         '37': 'TT9', '1': 'ACC', '48': '777', '55': 'FEF', '54': '1',
+         '37': 'ST9', '1': 'ACC', '48': '777', '55': 'FEF', '54': '1',
          '77': 'O', '32': '2', '31': '0.55', '14': '2', '151': '0',
          '60': '20261008-10:00:00.123'}
     f.update(over)
     return f
 
 
-def test_every_tt_fill_is_taped_ours_or_not_and_once():
+def test_every_stellar_fill_is_taped_ours_or_not_and_once():
     r = router()
     r.on_message('8', report(), '')
     r.on_message('8', report(), '')                      # resent: one fill
@@ -178,7 +178,7 @@ def test_every_tt_fill_is_taped_ours_or_not_and_once():
     first = tape[0]
     assert first['side'] == 'BUY' and first['open_close'] == 'OPEN'
     assert first['qty'] == 2.0 and first['price'] == 0.55
-    assert first['contract_key'] == 'fef' and first['tt_time'].startswith('20261008')
+    assert first['contract_key'] == 'fef' and first['venue_time'].startswith('20261008')
     assert tape[2]['open_close'] == 'CLOSE'
     assert r.take_tape() == []                           # taken once
     # A foreign fill is on the tape and NOT an event for the book.
@@ -190,16 +190,16 @@ def test_the_tape_is_kept_and_served(tmp_path):
     db = Database(str(tmp_path / 't.db'))
     r = router()
     r.on_message('8', report(), '')
-    db.save_tt_fills(r.take_tape())
-    db.save_tt_fills([dict(report(), exec_id='E1')])    # INSERT OR IGNORE
-    rows = db.tt_fills()
+    db.save_venue_fills(r.take_tape())
+    db.save_venue_fills([dict(report(), exec_id='E1')])    # INSERT OR IGNORE
+    rows = db.venue_fills()
     assert len(rows) == 1 and rows[0]['account'] == 'ACC'
 
 
 # -- the Account page --------------------------------------------------------------
 
 def test_the_account_page_and_its_journal(tmp_path, tick_value=1.0):
-    """/account renders the Trading Monitor tabs; /api/journal serves the TT
+    """/account renders the Trading Monitor tabs; /api/journal serves the Stellar
     fills tape, with the P&L of a CLOSING fill of ours against the position
     it closed — and none on a fill that is not ours."""
     from datetime import datetime, timezone
@@ -228,7 +228,7 @@ def test_the_account_page_and_its_journal(tmp_path, tick_value=1.0):
     r.on_message('8', report(**{'17': 'E9', '11': 'FT-x-2', '54': '2', '77': 'C',
                                 '31': '0.55'}), '')
     r.on_message('8', report(**{'17': 'E10'}), '')
-    db.save_tt_fills(r.take_tape())
+    db.save_venue_fills(r.take_tape())
     app = create_app(str(tmp_path / 'config.json'), str(tmp_path / 's.json'),
                      str(tmp_path / 'c.jsonl'), str(tmp_path / 'r.json'))
     c = app.test_client()
@@ -238,7 +238,7 @@ def test_the_account_page_and_its_journal(tmp_path, tick_value=1.0):
                 b'data-tab="analysis"'):
         assert tab in page
     body = c.get('/api/journal').get_json()
-    fills = {f['exec_id']: f for f in body['tt_fills']}
+    fills = {f['exec_id']: f for f in body['venue_fills']}
     if tick_value is None:
         # No tick value: the P&L is unknown — a dash, never a page that fails.
         assert fills['E9']['pnl'] is None and body['orders']
@@ -247,7 +247,7 @@ def test_the_account_page_and_its_journal(tmp_path, tick_value=1.0):
     assert fills['E9']['intent'] == 'CLOSE' and fills['E9']['name'] == 'Iron ore'
     assert fills['E10']['pnl'] is None and fills['E10']['ours'] == ''
     assert body['closed'][0]['net_pnl'] == 8.0
-    csv = c.get('/api/tt_fills.csv').data.decode()
+    csv = c.get('/api/venue_fills.csv').data.decode()
     assert 'exec_id' in csv.splitlines()[0] and 'E9' in csv
     import csv as csv_mod
     import io
@@ -258,7 +258,7 @@ def test_the_account_page_and_its_journal(tmp_path, tick_value=1.0):
 
 
 def test_the_journal_survives_a_contract_with_no_tick_value(tmp_path):
-    """Found on TT UAT: a closing Algo fill on a contract added without a
+    """Found on Stellar UAT: a closing Algo fill on a contract added without a
     tick value made /api/journal fail (round(None)), and with it the Fills
     tab went empty and the order tests found no closing order."""
     test_the_account_page_and_its_journal(tmp_path, tick_value=None)
@@ -303,10 +303,10 @@ def test_the_fills_csv_prices_a_manual_close_against_the_ticket_it_closed(tmp_pa
     base = {'orig_clordid': '', 'account': 'ACC', 'symbol': 'GC', 'contract_key': 'gc',
             'qty': 1.0, 'cum_qty': 1.0, 'leaves_qty': 0.0, 'exec_type': '2',
             'ord_status': '2', 'text': '', 'ours': 'MANUAL', 'security_id': 'GC1'}
-    db.save_tt_fills([
-        dict(base, exec_id='M1', clordid='FTM-a', order_id='T1', tt_time='t1', side='BUY',
+    db.save_venue_fills([
+        dict(base, exec_id='M1', clordid='FTM-a', order_id='T1', venue_time='t1', side='BUY',
              open_close='OPEN', price=4220.1, received='2026-10-09T18:46:33+00:00'),
-        dict(base, exec_id='M2', clordid='FTM-b', order_id='T2', tt_time='t2', side='SELL',
+        dict(base, exec_id='M2', clordid='FTM-b', order_id='T2', venue_time='t2', side='SELL',
              open_close='CLOSE', price=4218.0, received='2026-10-09T18:46:34+00:00')])
     status = tmp_path / 's.json'
     status.write_text(json.dumps({'engine': {'manual_terminal': {'orders': [
@@ -319,8 +319,8 @@ def test_the_fills_csv_prices_a_manual_close_against_the_ticket_it_closed(tmp_pa
                      str(tmp_path / 'c.jsonl'), str(tmp_path / 'r.json'))
     c = app.test_client()
     table = {r['exec_id']: r for r in csv_mod.DictReader(io.StringIO(
-        c.get('/api/tt_fills.csv').data.decode()))}
+        c.get('/api/venue_fills.csv').data.decode()))}
     assert float(table['M2']['pnl']) == -210.0        # -2.1 x $100, not -$21
     assert table['M1']['pnl'] == ''                    # an open has no P&L
-    fills = {f['exec_id']: f for f in c.get('/api/journal').get_json()['tt_fills']}
+    fills = {f['exec_id']: f for f in c.get('/api/journal').get_json()['venue_fills']}
     assert fills['M2']['pnl'] == -210.0                # the tab says the same

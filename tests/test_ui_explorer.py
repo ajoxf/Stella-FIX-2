@@ -1,7 +1,7 @@
 """The instrument explorer, driven in a real browser.
 
-The catalogue is built by feeding SecurityDefinitions through the REAL
-ManualTerminal parser, so what the page shows is what TT's messages produce.
+The catalogue is built by feeding Stellar Security Lists through the REAL
+ManualTerminal parser, so what the page shows is what Stellar's messages produce.
 """
 import itertools
 import json
@@ -37,11 +37,12 @@ def _catalogue():
                     'security_type': 'MLEG'})['request_id']
 
     def define(legs, desc):
-        f = [('35', 'd'), ('320', rid), ('48', str(next(ids))), ('55', 'CL'),
-             ('207', 'CME'), ('167', 'MLEG'), ('107', desc),
-             ('16552', '0.01'), ('16554', '1000'), ('15', 'USD')]
+        f = [('35', 'y'), ('320', rid), ('146', '1'), ('55', 'CL'), ('15', 'USD'),
+             ('48', str(next(ids))), ('207', 'CME'), ('461', 'MXXXXX'), ('107', desc),
+             ('969', '0.01'), ('1146', '10'), ('555', str(len(legs)))]
         for symbol, month, side in legs:
             f += [('600', symbol), ('610', month), ('623', '1'), ('624', side)]
+        f += [('560', '0'), ('893', 'Y')]
         t.on_message('Market Data', dict(f),
                      '\x01'.join(f'{k}={v}' for k, v in f) + '\x01')
 
@@ -71,7 +72,7 @@ def server(tmp_path):
     srv.shutdown()
 
 
-def test_an_inter_commodity_spread_is_found_by_its_tt_product(server):
+def test_an_inter_commodity_spread_is_found_by_its_stellar_product(server):
     errors = []
     with sync_playwright() as p:
         browser = _launch(p)
@@ -83,7 +84,7 @@ def test_an_inter_commodity_spread_is_found_by_its_tt_product(server):
         page.wait_for_timeout(1500)            # the first snapshot poll
         page.click('#explore-open')
         page.select_option('#explore-type', 'MLEG')
-        # typed the way a person types it, not the way TT spells it
+        # typed the way a person types it, not the way Stellar spells it
         page.fill('#explore-product-input', 'cl bz')
         page.wait_for_function(
             "document.querySelectorAll('#explore-contract option').length === 2")
@@ -119,6 +120,6 @@ def test_an_inter_commodity_spread_is_found_by_its_tt_product(server):
         assert page.input_value('#c-name') == '+1xCL Nov26:-1xBZ Dec26'
         assert page.input_value('#c-symbol') == 'CL'
         assert page.input_value('#c-security_exchange') == 'CME'
-        assert page.input_value('#c-tick_value') == '10.00'
+        assert page.input_value('#c-tick_value') == '10'          # Stellar's 1146
         browser.close()
     assert errors == []

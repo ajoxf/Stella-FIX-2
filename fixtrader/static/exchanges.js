@@ -50,11 +50,17 @@ async function loadVenues() {
 
 function vField(name) { return document.getElementById('v-' + name); }
 
-const VENUE_TEXT = ['broker', 'host', 'md_host', 'recovery_host', 'sender_comp_id',
+const VENUE_TEXT = ['broker', 'host', 'md_host', 'sender_comp_id', 'md_sender_comp_id',
   'target_comp_id', 'sender_sub_id', 'on_behalf_of_comp_id', 'username',
-  'account', 'data_dictionary', 'fix_version'];
-const VENUE_NUM = ['port', 'md_port', 'recovery_port', 'heartbeat_sec'];
-const VENUE_BOOL = ['reset_seq_on_logon', 'use_tls', 'enabled'];
+  'account', 'clearing_account', 'mifid_capacity', 'mifid_client_id',
+  'mifid_execution_decision', 'mifid_investment_decision',
+  'data_dictionary', 'fix_version'];
+const VENUE_NUM = ['port', 'md_port', 'heartbeat_sec'];
+const VENUE_BOOL = ['reset_seq_on_logon', 'use_tls', 'enabled', 'send_position_effect', 'mifid_dea'];
+//: What a NEW venue's boxes start as: Stellar keeps its Order Router
+//: numbers, and plain TCP over its line is the usual set-up.
+const VENUE_BOOL_NEW = {reset_seq_on_logon: false, use_tls: false, enabled: true,
+  send_position_effect: true, mifid_dea: false};
 
 function showVenue(v) {
   state.editing = v ? v.name : null;
@@ -77,7 +83,7 @@ function showVenue(v) {
   VENUE_NUM.forEach((k) => {
     vField(k).value = (v && v[k] !== null && v[k] !== undefined) ? v[k] : '';
   });
-  VENUE_BOOL.forEach((k) => { vField(k).checked = v ? !!v[k] : true; });
+  VENUE_BOOL.forEach((k) => { vField(k).checked = v ? !!v[k] : VENUE_BOOL_NEW[k]; });
   if (!v) vField('heartbeat_sec').value = 30;
 
   const pw = document.getElementById('v-password');
@@ -158,9 +164,9 @@ document.getElementById('v-delete').onclick = async () => {
 
 /* -- the three buttons --------------------------------------------------- */
 
-// A Logon takes TT up to 20 s to answer, and Connect reports back within 3.
+// A Logon takes Stellar up to 20 s to answer, and Connect reports back within 3.
 // While the session is still CONNECTING the page reads the status again
-// every two seconds until TT accepts or refuses, rather than leaving a
+// every two seconds until Stellar accepts or refuses, rather than leaving a
 // handshake in progress on screen as a failure.
 const FOLLOW_EVERY_MS = 2000;
 const FOLLOW_MAX = 15;
@@ -465,7 +471,7 @@ function prefillFromExplorer() {
   const venues = [...cField('venue').options].map((o) => o.value).filter(Boolean);
   if (venues.length === 1) cField('venue').value = venues[0];
   document.getElementById('contract-form-title').textContent =
-    'New contract from TT — check it, confirm the venue, then Save';
+    'New contract from Stellar — check it, confirm the venue, then Save';
   document.getElementById('contract-form-card').scrollIntoView({block: 'start'});
 }
 

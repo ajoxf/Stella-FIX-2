@@ -182,7 +182,7 @@ def test_a_paper_take_profit_closes_and_opens_nothing(tmp_path):
 from tests.test_manual_terminal import terminal  # noqa: E402,F401  the fixture
 
 
-def test_a_manual_close_names_its_ticket_and_says_close_to_tt(terminal):
+def test_a_manual_close_names_its_ticket_and_says_close_to_stellar(terminal):
     """Closing a hand ticket sends the opposite side flagged CLOSE (tag 77=C),
     tied to the ticket it closes, capped at that ticket's unclosed fills —
     never an opposite order that opens."""
@@ -190,15 +190,18 @@ def test_a_manual_close_names_its_ticket_and_says_close_to_tt(terminal):
     term = terminal
     preview = term.preview(ticket(quantity='2'))
     oid = term.submit({'token': preview['token'], 'confirmed': True})['order_id']
-    report(term, {'35': '8', '11': oid, '37': 'TT-1', '39': '2', '150': '2',
+    report(term, {'35': '8', '11': oid, '37': 'ST-1', '39': '2', '150': '2',
                   '17': 'EX-A', '14': '2', '151': '0', '32': '2', '31': '-0.5',
                   '6': '-0.5'})
     close = term.preview_close({'order_id': oid})
     term.submit({'token': close['token'], 'confirmed': True})
     fields = sent(term, 'D')[-1]
     assert fields['54'] == '2'                  # the opposite side: SELL
-    assert fields['77'] == 'C'                  # flagged CLOSE to TT
+    assert fields['77'] == 'C'                  # flagged CLOSE to Stellar
     assert float(fields['38']) == 2.0           # capped at the ticket's fills
-    assert fields['58'] == 'Close ' + oid       # tied to the ticket it closes
+    # Tied to the ticket it closes, in Stellar's ExchangeText party (1002).
+    wire = term.gateway._sessions['Order Routing'].sent[-1][1]
+    at = wire.index(('452', '1002'))
+    assert wire[at - 2] == ('448', 'Close ' + oid)
     with pytest.raises(ValueError):             # nothing left: no second close
         term.preview_close({'order_id': oid})

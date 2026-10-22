@@ -212,7 +212,7 @@ async function restartEngine() {
   const ok = await ask('Restart the engine',
     'The engine stops — cancelling any working orders this system sent — ' +
     'and the launcher starts it again with the saved changes. Open ' +
-    'positions are kept and recovered. Prices pause and the TT sessions ' +
+    'positions are kept and recovered. Prices pause and the Stellar sessions ' +
     'log on again: allow about 15 seconds.', 'Restart engine');
   if (!ok) return;
   const answer = await command('restart_engine');
@@ -260,7 +260,7 @@ function setMinimised(el, on) {
  */
 
 /* What SENDING orders to the venue is called: the venue's own word — UAT on
- * TT UAT, LIVE only on a live market. Never "LIVE" for a test venue. */
+ * Stellar UAT, LIVE only on a live market. Never "LIVE" for a test venue. */
 function sendWord() {
   return (((window.__lastSnapshot || {}).engine || {}).execution || {}).send_word || 'LIVE';
 }
@@ -277,7 +277,7 @@ function renderAlgoSwitch(el, c) {
   btn.className = 'algo-btn ' + ({ OFF: 'off', DRY: 'dry', PAPER: 'paper', LIVE: 'live' }[st] || 'off');
   btn.dataset.state = st;
   menuWords(el);
-  btn.title = st === 'LIVE' ? 'The Algo TRADES this contract and SENDS its orders to TT ' + sendWord() + ' — ' +
+  btn.title = st === 'LIVE' ? 'The Algo TRADES this contract and SENDS its orders to Stellar ' + sendWord() + ' — ' +
       'hand orders on it are refused; CLOSE ALL still closes. Click to change.'
     : st === 'PAPER' ? 'The Algo trades this contract on PAPER — filled here at the live ' +
       'bid/offer, nothing sent. Hand orders on it are refused. Click to change.'
@@ -287,20 +287,20 @@ function renderAlgoSwitch(el, c) {
     : 'The Algo is off: you trade this contract by hand. Click to turn the Algo on.';
 }
 
-/* The menu's last item says where the orders go: UAT on TT UAT, LIVE on a
+/* The menu's last item says where the orders go: UAT on Stellar UAT, LIVE on a
  * live market. */
 function menuWords(el) {
   const send = el.querySelector('.algo-menu button[data-algo="SEND"]');
   if (send) {
     send.textContent = sendWord() === 'UAT'
-      ? 'UAT — the Algo trades it, orders sent to TT UAT'
+      ? 'UAT — the Algo trades it, orders sent to Stellar UAT'
       : 'LIVE — the Algo trades it, REAL orders to the live market';
   }
 }
 
 /* ONE switch per contract: Off · Signals · Paper · UAT (LIVE on a live
  * venue). Paper and UAT both mean "the Algo trades it"; they differ only in
- * where its orders go — filled here, or sent to TT — and the switch sets
+ * where its orders go — filled here, or sent to Stellar — and the switch sets
  * that too, so there is no second control to find. Where the orders go is
  * one setting for the whole desk: the engine refuses to change it while
  * anything is open or working, in its own words. */
@@ -339,7 +339,7 @@ function wireAlgoSwitch(el, key) {
           }
         } else if (choice === 'PAPER') {
           const ok = await ask('The Algo trades ' + name + ' on PAPER?',
-            'Its orders are filled here at the live bid/offer — nothing is sent to TT. ' +
+            'Its orders are filled here at the live bid/offer — nothing is sent to Stellar. ' +
             'Hand orders on this contract are refused while it trades; CLOSE ALL still closes.',
             'Trade on PAPER');
           if (!ok) return;
@@ -730,7 +730,7 @@ function renderAlgoBody(el, c) {
   mode.className = 'aw-mode ' + (block.mode === 'LIVE' ? 'live'
     : block.mode === 'PAPER' ? 'paper' : 'dry');
   mode.title = block.mode === 'LIVE'
-    ? 'the Algo SENDS its orders to TT ' + sendWord()
+    ? 'the Algo SENDS its orders to Stellar ' + sendWord()
     : block.mode === 'PAPER'
       ? 'the Algo fills on paper at the live bid/offer — nothing is sent'
       : 'signals only — nothing is sent or filled (Auto trade is off)';
@@ -1070,19 +1070,19 @@ function ladderFor(key) {
   el.querySelector('.ld-depth').onclick = async () => {
     const full = el.querySelector('.ld-depth').dataset.full === '1';
     const r = await command('depth', key, { on: !full });
-    if (r && r.ok) toast('OK', 'DEPTH', r.full ? 'full depth requested from TT'
+    if (r && r.ok) toast('OK', 'DEPTH', r.full ? 'full depth requested from Stellar'
       : 'top of book only', key);
   };
   el.querySelector('.ld-refresh').onclick = async () => {
     const r = await command('refresh_feed', key);
-    if (r && r.ok) toast('OK', 'FEED', 'prices re-requested from TT', key);
+    if (r && r.ok) toast('OK', 'FEED', 'prices re-requested from Stellar', key);
   };
   const cxl = (side, label) => async () => {
     if (el.classList.contains('manual-on') && !el.classList.contains('algo-test')) {
       return cancelManual(el, key, (o) => !side || o.ticket.side === side, label);
     }
     const ok = await ask('Cancel ' + label + ' on ' + el.querySelector('.title').textContent + '?',
-      'A cancel request goes to TT for each of our working orders. They stay working until TT ' +
+      'A cancel request goes to Stellar for each of our working orders. They stay working until Stellar ' +
       'confirms — and can fill in between.', 'Request cancel');
     if (ok) await command('cancel_all', key, side ? { side } : {});
   };
@@ -1109,7 +1109,7 @@ function ladderFor(key) {
   });
   el.querySelector('.ld-ot').onchange = (e) => { pref.ot = e.target.value; saveLadderPref(key); };
   el.querySelector('.ld-tif').onchange = (e) => { pref.tif = e.target.value; saveLadderPref(key); };
-  // TT's convention: a click in Bids BUYS at that price, in Asks SELLS.
+  // Stellar's convention: a click in Bids BUYS at that price, in Asks SELLS.
   el.querySelector('.ld-grid tbody').addEventListener('click', (e) => {
     const cell = e.target.closest('td.bid, td.ask');
     if (!cell || !el.classList.contains('manual-on')) return;
@@ -1192,7 +1192,7 @@ function ladderSecurity(key) {
   return d ? String(d.c.security_id || '') : '';
 }
 
-// This contract's manual orders still working at TT.
+// This contract's manual orders still working at Stellar.
 function ladderManualWorking(key) {
   const term = ladderManual(key), sid = ladderSecurity(key);
   if (!term || !sid) return [];
@@ -1232,11 +1232,11 @@ async function manualOrder(el, key, side, price) {
   if (!review || !review.ok || !review.token) return;      // refused: already toasted
   const t = review.ticket || {};
   const dec = d.c.decimals === undefined ? 4 : d.c.decimals;
-  const ok = await ask(side + ' ' + t.quantity + ' ' + (d.c.name || key) + ' — send to TT?',
+  const ok = await ask(side + ' ' + t.quantity + ' ' + (d.c.name || key) + ' — send to Stellar?',
     side + ' ' + t.quantity + ' @ ' + (t.order_type === 'MARKET' ? 'MARKET' : num(Number(t.price), dec) +
     ' LIMIT') + ' · ' + t.tif + ' · account ' + t.account + ' · Open/Close: OPEN (77=O). ' +
-    'A manual ticket (FTM-), sent to TT ' + ((d.engine || {}).environment || '') +
-    ' on your confirmation; an acknowledgement or fill comes from TT.',
+    'A manual ticket (FTM-), sent to Stellar ' + ((d.engine || {}).environment || '') +
+    ' on your confirmation; an acknowledgement or fill comes from Stellar.',
     'Send ' + side, review.book);
   if (!ok) return;
   const sent = await command('terminal_submit', '', { token: review.token, confirmed: true });
@@ -1245,7 +1245,7 @@ async function manualOrder(el, key, side, price) {
 
 /* UAT, on the Order tests page, with the Algo TRADING this contract: the
  * ladder sends through the ALGO's own order path — the executor, an FT- id,
- * 77=O, 1028=N — as its signal would on a live market; the Algo's TP / SL
+ * 77=O, 452=24 — as its signal would on a live market; the Algo's TP / SL
  * then manage the position. The engine refuses it on any venue but UAT. */
 async function algoTestOrder(el, key, side, price) {
   const d = ladderData[key];
@@ -1262,7 +1262,7 @@ async function algoTestOrder(el, key, side, price) {
   const dec = d.c.decimals === undefined ? 4 : d.c.decimals;
   const ok = await ask('Algo test order — ' + side + ' ' + qty + ' ' + (d.c.name || key) + '?',
     side + ' ' + qty + ' @ ' + (ot === 'MARKET' ? 'MARKET' : num(Number(px), dec) + ' LIMIT (rests there)') +
-    ' through the ALGO\'s own order path to TT UAT — an FT- order, 77=O, 1028=N, exactly as its ' +
+    ' through the ALGO\'s own order path to Stellar UAT — an FT- order, 77=O, 452=24, exactly as its ' +
     'signal would send it on a live market. The Algo then manages the position: its take-profit and ' +
     'stop loss, as on the Algo window. CLOSE ALL and Close @ LMT close it as they would live.',
     'Send ' + side);
@@ -1279,7 +1279,7 @@ async function cancelManual(el, key, which, label) {
   if (!orders.length) { toast('REJECT', 'CANCEL', 'no manual order to cancel', key); return; }
   const ok = await ask('Cancel ' + label + '?',
     orders.length + ' manual order(s): ' + orders.map((o) => o.id).join(', ') +
-    '. Each stays working until TT confirms the cancel — and can fill in between.', 'Request cancel');
+    '. Each stays working until Stellar confirms the cancel — and can fill in between.', 'Request cancel');
   if (!ok) return;
   for (const o of orders) await command('terminal_cancel', '', { order_id: o.id });
 }
@@ -1328,7 +1328,7 @@ function renderLadder(c, engine) {
   signalAlert(el, c);
   const term = (engine || {}).manual_terminal;
   // Hand trading on this ladder: its Algo not trading it (Off or Signals)
-  // and holding nothing here, a TT manual ticket behind it, and the session
+  // and holding nothing here, a Stellar manual ticket behind it, and the session
   // up. Anything else and the order controls are off — and the banner says
   // which.
   const sessionUp = ((engine || {}).session || {}).state === 'LOGGED_ON';
@@ -1384,14 +1384,14 @@ function renderLadder(c, engine) {
   if (algoTest) {
     lock.className = 'ld-lock algo-test';
     lockText.textContent = word + ' — BUY / SELL or a click in Bids / Asks makes the Algo send its ' +
-      'order to TT UAT now, as on a signal. Its TP / SL then manage it.';
-    lock.title = 'Order tests page only, on TT UAT. One test position at a time.';
+      'order to Stellar UAT now, as on a signal. Its TP / SL then manage it.';
+    lock.title = 'Order tests page only, on Stellar UAT. One test position at a time.';
   } else if (algoTrades && EMBED !== null) {
     lock.className = 'ld-lock';
     lockText.textContent = word + ' — ' + ((c.position || {}).side || (c.orders || []).length
       ? 'the Algo holds this contract: CLOSE ALL or Close @ LMT, then the next test order.'
-      : ex.mode !== 'LIVE' ? 'set the Algo to UAT to send its orders to TT UAT.'
-      : 'the TT session is not up.');
+      : ex.mode !== 'LIVE' ? 'set the Algo to UAT to send its orders to Stellar UAT.'
+      : 'the Stellar session is not up.');
     lock.title = '';
   } else if (algoTrades) {
     lock.className = 'ld-lock';
@@ -1407,20 +1407,20 @@ function renderLadder(c, engine) {
     lock.className = 'ld-lock manual';
     lockText.textContent = (algoState === 'DRY' ? 'SIGNALS — the Algo signals and watches your TP/SL, you trade. '
       : 'ALGO OFF — you trade. ') + 'BUY / SELL, or click a price: Bids buys, Asks sells.';
-    lock.title = 'Every order is reviewed before it goes to TT: a manual ticket (FTM-), with ' +
+    lock.title = 'Every order is reviewed before it goes to Stellar: a manual ticket (FTM-), with ' +
       'the same checks and safety limits as Instruments & orders. Right-click a Work cell to ' +
       'cancel there.';
   } else {
     lock.className = 'ld-lock manual';
-    lockText.textContent = word + ' — ' + (!term ? 'hand orders need the TT session (not the simulator).'
-      : !c.security_id ? 'this contract has no TT Security ID.'
-      : 'the TT session is not logged on.') + ' CLOSE ALL still closes.';
+    lockText.textContent = word + ' — ' + (!term ? 'hand orders need the Stellar session (not the simulator).'
+      : !c.security_id ? 'this contract has no Stellar Security ID.'
+      : 'the Stellar session is not logged on.') + ' CLOSE ALL still closes.';
     lock.title = '';
   }
   el.classList.toggle('algo-locked', !manualOn);
 
   // A close that did NOT happen, said loudly on the ladder: the Algo's (in
-  // the engine's words) or a manual ticket's (in TT's), until a close fills.
+  // the engine's words) or a manual ticket's (in Stellar's), until a close fills.
   const alerts = [];
   if (c.close_alert) alerts.push(c.close_alert.text);
   ((term || {}).close_alerts || []).forEach((a) => {
@@ -1437,7 +1437,7 @@ function renderLadder(c, engine) {
 
   // The rail.
   el.querySelector('.ld-rb-sym').innerHTML = 'Contract <b>' + esc(c.symbol || c.name) + '</b>';
-  el.querySelector('.ld-rb-id').innerHTML = 'TT ID <b>' + esc(c.security_id || DASH) + '</b>';
+  el.querySelector('.ld-rb-id').innerHTML = 'Stellar ID <b>' + esc(c.security_id || DASH) + '</b>';
   const acct = ((engine || {}).manual_terminal || {}).account;
   el.querySelector('.ld-rb-acct').innerHTML = 'Account <b>' + esc(acct || (engine || {}).environment || DASH) + '</b>';
   el.querySelector('.ld-quoting').textContent = ex.mode === 'PAPER' || ex.mode === 'SIMULATOR'
@@ -1493,11 +1493,11 @@ function renderLadder(c, engine) {
   fe.textContent = feed.stale ? 'STALE (' + (has(feed.age_sec) ? feed.age_sec + 's' : 'no quote') + ')'
     : feed.settling ? 'SETTLING after a jump' : has(feed.age_sec) ? 'OK (quote ' + feed.age_sec + 's)' : 'no quote yet';
   fe.className = 'ld-feed ' + (feed.stale ? 'bad' : feed.settling ? 'warn' : 'ok');
-  // Why there are no prices, when there are none: TT refused (permissions),
-  // nobody quotes it, or TT has not answered — the engine's words.
+  // Why there are no prices, when there are none: Stellar refused (permissions),
+  // nobody quotes it, or Stellar has not answered — the engine's words.
   const md = c.md || null;
   if (md && !['LIVE', 'ONE_SIDED'].includes(md.state)) {
-    fe.textContent = ({ REFUSED: 'REFUSED by TT', NO_ANSWER: 'NO ANSWER from TT',
+    fe.textContent = ({ REFUSED: 'REFUSED by Stellar', NO_ANSWER: 'NO ANSWER from Stellar',
       EMPTY: 'NO QUOTES on UAT', WAITING: 'requesting…', NO_SESSION: 'MD not connected',
       NOT_REQUESTED: 'not requested', NO_ID: 'no Security ID' })[md.state] || md.state;
     fe.className = 'ld-feed ' + (md.state === 'WAITING' ? 'warn' : 'bad');
@@ -1535,7 +1535,7 @@ function renderLadder(c, engine) {
     pn.className = 'ld-pnl ' + (shown > 0 ? 'up' : shown < 0 ? 'dn' : '');
     pn.title = watched ? 'Net after the round trip, at the side it would close on — ' +
       'the Algo watching your position (Signals)'
-      : 'Gross, marked at the TT mid — the manual ticket\'s own figure';
+      : 'Gross, marked at the Stellar mid — the manual ticket\'s own figure';
   } else {
     pe.textContent = 'flat';
     pn.textContent = '';
@@ -1596,8 +1596,8 @@ function renderLadder(c, engine) {
   }
   const bidK = has(m.bid) ? key(m.bid) : null;
   const askK = has(m.ask) ? key(m.ask) : null;
-  // The book: every level TT sends (FULL depth), summed into the ladder's
-  // rows; without depth, the touch alone. A level is TT's, never inferred.
+  // The book: every level Stellar sends (FULL depth), summed into the ladder's
+  // rows; without depth, the touch alone. A level is Stellar's, never inferred.
   const depth = c.depth || null;
   const bidSz = {}, askSz = {};
   const addLevels = (levels, into) => (levels || []).forEach((lv) => {
@@ -1638,7 +1638,7 @@ function renderLadder(c, engine) {
       '<td class="price' + (k === ltK ? ' last-trade' : '') + (isBid ? ' at-bid' : '') + (isAsk ? ' at-ask' : '') + '">' + k + '</td>' +
       '<td class="ask' + (k in askSz ? ' has-qty' : '') + (isAsk ? ' touch' : '') + '">' +
         (k in askSz ? fmtSz(askSz[k]) : '') + '</td>' +
-      '<td class="ltq' + (k === ltK ? ' print' : '') + '" title="' + (k === ltK ? 'TT last trade' : '') + '">' +
+      '<td class="ltq' + (k === ltK ? ' print' : '') + '" title="' + (k === ltK ? 'Stellar last trade' : '') + '">' +
       (k === ltK ? '●' : '') + '</td></tr>';
   }
   body.innerHTML = html;
@@ -1722,7 +1722,7 @@ function flash(el, cls) {
 /* -- the Trading Monitor window ---------------------------------------------
  *
  * The MT5 desk's Trading Monitor, on the desk: Positions, Working orders,
- * Fills (the TT fills tape), Closed trades, Slippage and the Reconciler —
+ * Fills (the Stellar fills tape), Closed trades, Slippage and the Reconciler —
  * the SAME renderer as the Account tab (monitor.js), fed this desk's
  * snapshot on every tick rather than polling for itself. What the VENUE says
  * sits beside what this book holds, because the two disagreeing is the whole
@@ -2451,23 +2451,23 @@ function renderChrome(snap) {
   } else if (engine.execution && engine.execution.mode === 'LIVE' &&
              engine.execution.positions_waived) {
     banner.classList.remove('hidden', 'critical');
-    banner.textContent = sendWord() + ' — the Algo sends real orders. TT positions ' +
+    banner.textContent = sendWord() + ' — the Algo sends real orders. Stellar positions ' +
       'could not be read on this session: this book\'s own fills are the ' +
-      'record, on your confirmation. A position opened in TT by other ' +
+      'record, on your confirmation. A position opened in Stellar by other ' +
       'means on this account is invisible to the Algo.';
   } else if (engine.book_complete === false) {
-    // Not an error in trading: TT has not told us the account's positions,
-    // so this book cannot be checked against TT's. Said with the reason and
+    // Not an error in trading: Stellar has not told us the account's positions,
+    // so this book cannot be checked against Stellar's. Said with the reason and
     // with what still works — "nothing will be closed" read as "my closes
     // will not work", which is not what it meant.
     const why = ((engine.execution || {}).positions || {}).why;
     banner.classList.remove('hidden', 'critical');
     banner.classList.add('warn');
-    banner.textContent = 'TT has not sent this account\'s positions' +
+    banner.textContent = 'Stellar has not sent this account\'s positions' +
       (why ? ' (' + why + ')' : '') + ', so this program cannot check its own ' +
-      'book against TT\'s. Your orders and closes work normally — CLOSE ALL, ' +
+      'book against Stellar\'s. Your orders and closes work normally — CLOSE ALL, ' +
       'Close @ LMT, the Algo\'s take-profit and stop loss. Only the Reconciler ' +
-      'waits: it closes nothing on its own until TT\'s positions are known.';
+      'waits: it closes nothing on its own until Stellar\'s positions are known.';
   } else {
     banner.classList.add('hidden');
   }
@@ -2527,11 +2527,11 @@ function renderChrome(snap) {
   exBtn.classList.toggle('live', ex.mode === 'LIVE');
   const pos = ex.positions || {};
   exBtn.title = ex.mode === 'LIVE'
-    ? 'The Algo SENDS its orders to TT ' + (ex.send_word || 'LIVE') + '. Click for PAPER.' +
-      (ex.positions_waived ? ' TT positions were NOT read — this book\'s own ' +
+    ? 'The Algo SENDS its orders to Stellar ' + (ex.send_word || 'LIVE') + '. Click for PAPER.' +
+      (ex.positions_waived ? ' Stellar positions were NOT read — this book\'s own ' +
         'fills are the record, on your confirmation.' : '')
     : 'PAPER: the Algo fills here at the live price; nothing is sent. Click ' +
-      'to send to TT ' + (ex.send_word || 'LIVE') + '. TT positions: ' + (pos.why || pos.status || 'unknown') + '.';
+      'to send to Stellar ' + (ex.send_word || 'LIVE') + '. Stellar positions: ' + (pos.why || pos.status || 'unknown') + '.';
 
   const stat = document.getElementById('loop-stat');
   stat.textContent = 'loop ' + (engine.loop_ms === undefined ? DASH
@@ -2593,7 +2593,7 @@ const CFG_GROUPS = [
     ['half_life_max_min', 'Half-life at most', 'minutes; 0 = off', 'number', { step: 30, min: 0 }],
   ] },
   { name: 'Exit', fields: [
-    ['margin_per_contract', 'Margin per contract', 'money; TT does not report it. Target and stop are % of this &mdash; no margin, no entries', 'number', { step: 50, min: 0 }],
+    ['margin_per_contract', 'Margin per contract', 'money; Stellar does not report it. Target and stop are % of this &mdash; no margin, no entries', 'number', { step: 50, min: 0 }],
     ['target_mode', 'Target sized by', '', 'select', { options: [['MARGIN', '% of margin'], ['ATR', 'ATR multiple']] }],
     ['profit_target_pct', 'Profit target', '% of the margin, from break-even (after the whole round trip)', 'number', { step: 0.5, min: 0 }],
     ['stop_loss_on', 'Stop loss', 'from break-even, the mirror of the target', 'check'],
@@ -2905,16 +2905,16 @@ document.getElementById('execution-toggle').onclick = async () => {
     return;
   }
   // The engine writes the confirmation — the venue, the account, and
-  // whether TT's positions could be read — so the screen cannot soften it.
+  // whether Stellar's positions could be read — so the screen cannot soften it.
   const asked = await command('execution', '', { mode: 'LIVE' });
   if (!asked || !asked.confirm) return;
-  const ok = await ask('Send the Algo\'s orders to TT ' + sendWord() + '?', asked.text,
+  const ok = await ask('Send the Algo\'s orders to Stellar ' + sendWord() + '?', asked.text,
     'Send to ' + sendWord());
   if (!ok) return;
   const done = await command('execution', '', { mode: 'LIVE', confirm: true });
   if (done && done.ok) {
-    toast('ORDER', sendWord(), 'the Algo now sends its orders to TT ' + sendWord() +
-      (done.positions_waived ? ' — TT positions unread, on your word' : ''));
+    toast('ORDER', sendWord(), 'the Algo now sends its orders to Stellar ' + sendWord() +
+      (done.positions_waived ? ' — Stellar positions unread, on your word' : ''));
   }
 };
 
