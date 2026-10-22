@@ -1,0 +1,23 @@
+<header class="app-nav">
+  <a class="app-brand" href="/">NEXUS FIX</a>
+  <nav aria-label="Main navigation">
+    <a class="{{ 'active' if request.path == '/desk' else '' }}" href="/desk">Algo desk</a>
+    <a class="{{ 'active' if request.path == '/instruments' else '' }}" href="/instruments">Instruments &amp; orders</a>
+    <a class="{{ 'active' if request.path == '/account' else '' }}" href="/account">Account</a>
+    <a class="{{ 'active' if request.path == '/order-tests' else '' }}" href="/order-tests">Order tests</a>
+    <span class="nav-sep" aria-hidden="true"></span>
+    <a class="{{ 'active' if request.path == '/connection' else '' }}" href="/connection">Connection</a>
+    <a class="{{ 'active' if request.path == '/exchanges' else '' }}" href="/exchanges">Exchanges</a>
+    <a class="{{ 'active' if request.path == '/logs' else '' }}" href="/logs">FIX logs</a>
+    <a class="{{ 'active' if request.path == '/settings' else '' }}" href="/settings">Settings</a>
+  </nav>
+  {% if request.path in ('/', '/desk', '/settings', '/exchanges', '/account', '/order-tests') %}
+  <span id="env-badge" class="env">&mdash;</span>
+  {% elif request.path == '/connection' %}
+  <span id="environment" class="env">Checking environment</span>
+  {% elif request.path == '/instruments' %}
+  <span id="session" class="env">Checking FIX&hellip;</span>
+  {% else %}
+  <span class="env">REDACTED AUDIT</span>
+  {% endif %}
+</header>

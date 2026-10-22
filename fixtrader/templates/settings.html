@@ -1,0 +1,296 @@
+{% extends "_page.html" %}
+{% block title %}Settings · Nexus FIX{% endblock %}
+{% block subtitle %}settings{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block crumb %}how the system runs, as opposed to how one contract is traded{% endblock %}
+{% block actions %}
+  <span id="saved" class="saved"></span>
+  <button id="revert" class="tk">Revert</button>
+  <button id="save" class="tk pri">Save</button>
+{% endblock %}
+
+{% block content %}
+<!-- Named here rather than warned about on every save: crying "restart" each
+     time teaches the operator to ignore the line that matters. -->
+<div id="restart-note" class="banner hidden"></div>
+
+<div class="cols" id="settings-cols">
+
+  <section class="card">
+    <h5>The loop</h5>
+    <div class="cb">
+      <label class="f"><span>Screen refresh <small>seconds — every window, every figure</small></span>
+        <input type="number" step="0.1" min="0.1" data-key="PRICE_REFRESH_SEC"></label>
+      <label class="f"><span>Engine pass <small>seconds</small></span>
+        <input type="number" step="0.05" min="0.02" data-key="ENGINE_POLL_SEC"></label>
+      <label class="f"><span>Command drain <small>seconds — a switch must not wait for a price</small></span>
+        <input type="number" step="0.01" min="0.01" data-key="COMMAND_POLL_SEC"></label>
+      <div class="hint" id="loop-achieved">&mdash;</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h5>Master switches</h5>
+    <div class="cb">
+      <label class="f"><span>Algo master <small>off stands every contract down at once</small></span>
+        <input type="checkbox" class="chk" data-key="ALGO_MASTER_ENABLED"></label>
+      <label class="f"><span>Ask before CLOSE NOW</span>
+        <input type="checkbox" class="chk" data-key="CONFIRM_CLOSE"></label>
+      <label class="f"><span>Sound</span>
+        <input type="checkbox" class="chk" data-key="SOUND_ENABLED"></label>
+      <label class="f"><span>At shutdown, open positions</span>
+        <select data-key="SHUTDOWN_CLOSE_POSITIONS">
+          <option value="ask">Ask</option>
+          <option value="always">Always close</option>
+          <option value="never">Never close</option>
+        </select></label>
+      <div class="hint">An unanswered shutdown prompt means <b>no</b>. Our own
+        working orders are cancelled at startup and at shutdown either way.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h5>Guards <span class="note">a guard withholds an order, never a close</span></h5>
+    <div class="cb">
+      <label class="f"><span>Quote stale after <small>seconds; 0 = off</small></span>
+        <input type="number" step="1" min="0" data-key="MAX_QUOTE_AGE_SEC"></label>
+      <label class="f"><span>Price jump <small>sigma; 0 = off</small></span>
+        <input type="number" step="0.5" min="0" data-key="MAX_PRICE_JUMP_SIGMA"></label>
+      <label class="f"><span>Settle after a jump <small>seconds</small></span>
+        <input type="number" step="0.5" min="0" data-key="JUMP_SETTLE_SEC"></label>
+      <label class="f"><span>Refuse entries outside venue hours</span>
+        <input type="checkbox" class="chk" data-key="REFUSE_OUTSIDE_SESSION"></label>
+      <div class="hint">Staleness is measured on the quote <b>changing</b>, not
+        on messages arriving: a venue republishing an unchanged book is not a
+        live market. 0 turns the guard off, which also stops it catching a feed
+        that has genuinely stopped.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h5>Desk limits</h5>
+    <div class="cb">
+      <label class="f"><span>Daily loss limit, all contracts <small>0 = none</small></span>
+        <input type="number" step="100" min="0" data-key="DAILY_MAX_LOSS_TOTAL"></label>
+      <label class="f"><span>Maximum open contracts <small>0 = none</small></span>
+        <input type="number" step="1" min="0" data-key="MAX_OPEN_CONTRACTS"></label>
+      <div class="hint">A desk limit turns <b>every</b> algo off and names the
+        limit. A contract's own limit turns off only that contract.</div>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <h5>Defaults for a new contract <span class="note">a blank box on a contract falls back here</span></h5>
+    <div class="cb cb-grid">
+      <label class="f"><span>Candles of <small>minutes; built from the recorded mids</small></span>
+        <select data-key="DEFAULT_TIMEFRAME_MIN">
+          <option value="1">1 min</option>
+          <option value="5">5 min</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">1 hour</option>
+          <option value="240">4 hours</option>
+        </select></label>
+      <label class="f"><span>Band length N <small>EMA(N) middle, σ of the last N</small></span>
+        <input type="number" step="1" min="2" data-key="DEFAULT_LENGTH"></label>
+      <label class="f"><span>Entry z <small>|z| of the bid / offer</small></span>
+        <input type="number" step="0.1" data-key="DEFAULT_ENTRY_THRESHOLD"></label>
+      <label class="f"><span>No entry beyond <small>|z|; 0 = no cap</small></span>
+        <input type="number" step="0.1" data-key="DEFAULT_MAX_ENTRY_Z"></label>
+      <label class="f"><span>Confirm for <small>fresh quotes in a row</small></span>
+        <input type="number" step="1" min="1" data-key="DEFAULT_CONFIRM_SAMPLES"></label>
+      <label class="f"><span>Enter <small>entries only, never exits</small></span>
+        <select data-key="DEFAULT_TRADE_DIRECTION">
+          <option value="BOTH">Both ways</option>
+          <option value="SELL_ONLY">H to L only (sell)</option>
+          <option value="BUY_ONLY">L to H only (buy)</option>
+        </select></label>
+      <label class="f"><span>Re-entry <small>armed at the band, entered on the way back</small></span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_REENTRY_ON"></label>
+      <label class="f"><span>Enter back by <small>z inside the band</small></span>
+        <input type="number" step="0.1" min="0.05" data-key="DEFAULT_REENTRY_BACK"></label>
+      <label class="f"><span>Re-entry window <small>% of the way to the mean</small></span>
+        <input type="number" step="5" min="5" data-key="DEFAULT_REENTRY_WINDOW_PCT"></label>
+      <label class="f"><span>Warm-up <small>minutes of live prices since armed; 0 = off</small></span>
+        <input type="number" step="10" min="0" data-key="DEFAULT_WARMUP_MIN"></label>
+      <label class="f"><span>No entry before the close <small>minutes; 0 = off</small></span>
+        <input type="number" step="5" min="0" data-key="DEFAULT_CUTOFF_BUFFER_MIN"></label>
+      <label class="f"><span>Edge filter</span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_EDGE_ON"></label>
+      <label class="f"><span>Edge required <small>× the round trip</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_EDGE_MULTIPLE"></label>
+      <label class="f"><span>Capture expected <small>of the move back, 0–1</small></span>
+        <input type="number" step="0.05" min="0" data-key="DEFAULT_EDGE_CAPTURE_FRAC"></label>
+      <label class="f"><span>Regime filter <small>no entry while TRENDING</small></span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_REGIME_ON"></label>
+      <label class="f"><span>Trending above efficiency <small>0–1</small></span>
+        <input type="number" step="0.05" min="0" data-key="DEFAULT_REGIME_ER_MAX"></label>
+      <label class="f"><span>… and crossings at most <small>over 2N candles</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_REGIME_MIN_CROSSINGS"></label>
+      <label class="f"><span>Trend filter <small>no entry against the drift</small></span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_TREND_ON"></label>
+      <label class="f"><span>Trend limit <small>σ of EMA drift</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_TREND_SIGMA"></label>
+      <label class="f"><span>Trend lookback <small>minutes</small></span>
+        <input type="number" step="15" min="1" data-key="DEFAULT_TREND_LOOKBACK_MIN"></label>
+      <label class="f"><span>Half-life at least <small>minutes; 0 = off</small></span>
+        <input type="number" step="5" min="0" data-key="DEFAULT_HALF_LIFE_MIN_MIN"></label>
+      <label class="f"><span>Half-life at most <small>minutes; 0 = off</small></span>
+        <input type="number" step="30" min="0" data-key="DEFAULT_HALF_LIFE_MAX_MIN"></label>
+      <label class="f"><span>Margin per contract <small>TT does not report it; no margin, no entries</small></span>
+        <input type="number" step="50" min="0" data-key="DEFAULT_MARGIN_PER_CONTRACT"></label>
+      <label class="f"><span>Target sized by <small></small></span>
+        <select data-key="DEFAULT_TARGET_MODE">
+          <option value="MARGIN">% of margin</option>
+          <option value="ATR">ATR multiple</option>
+        </select></label>
+      <label class="f"><span>Stop loss <small>from break-even</small></span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_STOP_LOSS_ON"></label>
+      <label class="f"><span>Stop sized by <small></small></span>
+        <select data-key="DEFAULT_STOP_MODE">
+          <option value="MARGIN">% of margin</option>
+          <option value="ATR">ATR multiple</option>
+        </select></label>
+      <label class="f"><span>Stop loss at <small>% of the margin</small></span>
+        <input type="number" step="0.5" min="0" data-key="DEFAULT_STOP_LOSS_PCT"></label>
+      <label class="f"><span>ATR period <small>candles</small></span>
+        <input type="number" step="1" min="2" data-key="DEFAULT_ATR_PERIOD"></label>
+      <label class="f"><span>ATR target <small>× ATR</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_ATR_TARGET_MULT"></label>
+      <label class="f"><span>ATR stop <small>× ATR</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_ATR_STOP_MULT"></label>
+      <label class="f"><span>Z stop <small>on the closing side</small></span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_STOP_Z_ON"></label>
+      <label class="f"><span>Z stop at <small>|z|</small></span>
+        <input type="number" step="0.1" data-key="DEFAULT_STOP_LOSS_Z"></label>
+      <label class="f"><span>Exit at the mean when paid</span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_EXIT_AT_MEAN"></label>
+      <label class="f"><span>Time stop <small>minutes; 0 = none</small></span>
+        <input type="number" step="15" min="0" data-key="DEFAULT_MAX_HOLD_MINUTES"></label>
+      <label class="f"><span>Losing trades in a row <small>pauses entries for the day; 0 = off</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_MAX_LOSSES_ROW"></label>
+      <label class="f"><span>SL ← entry → TP bar</span>
+        <input type="checkbox" class="chk" data-key="DEFAULT_PROGRESS_BAR"></label>
+      <label class="f"><span>Touch study window <small>minutes of mids (Analysis)</small></span>
+        <input type="number" step="10" min="1" data-key="DEFAULT_WINDOW_MINUTES"></label>
+      <label class="f"><span>Touch study warm-up <small>minutes of continuous history</small></span>
+        <input type="number" step="10" min="0" data-key="DEFAULT_MIN_HISTORY_MINUTES"></label>
+      <label class="f"><span>Record the mid every <small>seconds</small></span>
+        <input type="number" step="0.5" min="0.1" data-key="DEFAULT_SAMPLE_INTERVAL_SEC"></label>
+      <label class="f"><span>Touch study recompute <small>seconds; 0 = every sample</small></span>
+        <input type="number" step="30" min="0" data-key="DEFAULT_STATS_UPDATE_INTERVAL_SEC"></label>
+      <label class="f"><span>Algo quantity <small>contracts per entry</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_QUANTITY"></label>
+      <label class="f"><span>Maximum position <small>0 = none</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_MAX_POSITION"></label>
+      <label class="f"><span>Trades per day <small>0 = none</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_MAX_TRADES_PER_DAY"></label>
+      <label class="f"><span>Daily loss limit, per contract</span>
+        <input type="number" step="100" min="0" data-key="DEFAULT_DAILY_MAX_LOSS"></label>
+      <label class="f"><span>Cooldown after a trade <small>seconds</small></span>
+        <input type="number" step="5" min="0" data-key="DEFAULT_ENTRY_COOLDOWN_SECONDS"></label>
+      <label class="f"><span>Entry order</span>
+        <select data-key="DEFAULT_ENTRY_ORDER_TYPE">
+          <option value="LIMIT">Limit</option><option value="MARKET">Market</option>
+        </select></label>
+      <label class="f"><span>Exit order</span>
+        <select data-key="DEFAULT_EXIT_ORDER_TYPE">
+          <option value="MARKET">Market</option><option value="LIMIT">Limit</option>
+        </select></label>
+      <label class="f"><span>Entry limit offset <small>ticks behind the touch</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_ENTRY_LIMIT_OFFSET_TICKS"></label>
+      <label class="f"><span>Exit limit offset <small>ticks</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_EXIT_LIMIT_OFFSET_TICKS"></label>
+      <label class="f"><span>Market orders as a limit <small>ticks through the best price, fill-or-cancel — exchanges reject a bare market order outside their price band; 0 = true market</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_MARKET_LIMIT_TICKS"></label>
+      <label class="f"><span>Entry unfilled after <small>seconds</small></span>
+        <input type="number" step="5" min="0" data-key="DEFAULT_ENTRY_LIMIT_TIMEOUT_SEC"></label>
+      <label class="f"><span>Exit unfilled after <small>seconds</small></span>
+        <input type="number" step="5" min="0" data-key="DEFAULT_EXIT_LIMIT_TIMEOUT_SEC"></label>
+      <label class="f"><span>Then, on an entry
+          <small>a missed entry is a trade not taken</small></span>
+        <select data-key="DEFAULT_ENTRY_ON_TIMEOUT">
+          <option value="CANCEL">Cancel it</option>
+          <option value="CROSS_AT_MARKET">Cross at market</option>
+        </select></label>
+      <label class="f"><span>Then, on an exit
+          <small>a missed exit is a position you still hold</small></span>
+        <select data-key="DEFAULT_EXIT_ON_TIMEOUT">
+          <option value="CROSS_AT_MARKET">Cross at market</option>
+          <option value="CANCEL">Cancel it</option>
+        </select></label>
+      <label class="f"><span>Re-peg dead band <small>ticks — every amend costs queue position</small></span>
+        <input type="number" step="1" min="0" data-key="DEFAULT_REPEG_DEAD_BAND_TICKS"></label>
+      <label class="f"><span>Time in force</span>
+        <select data-key="DEFAULT_TIME_IN_FORCE">
+          <option value="DAY">DAY</option><option value="IOC">IOC</option>
+          <option value="GTC">GTC</option>
+        </select></label>
+      <label class="f"><span>Close flag
+          <small>SHFE and INE price a close-today differently</small></span>
+        <select data-key="DEFAULT_CLOSE_OFFSET_MODE">
+          <option value="CLOSE">Close</option>
+          <option value="CLOSE_TODAY">Close today</option>
+          <option value="CLOSE_YESTERDAY">Close yesterday</option>
+          <option value="AUTO">Auto, from the day it opened</option>
+        </select></label>
+      <label class="f"><span>Commission <small>per contract per side</small></span>
+        <input type="number" step="0.05" min="0" data-key="DEFAULT_COMMISSION_PER_CONTRACT"></label>
+      <label class="f"><span>Exchange fee <small>per contract per side</small></span>
+        <input type="number" step="0.05" min="0" data-key="DEFAULT_EXCHANGE_FEE_PER_CONTRACT"></label>
+      <label class="f"><span>Clearing fee <small>per contract per side</small></span>
+        <input type="number" step="0.05" min="0" data-key="DEFAULT_CLEARING_FEE_PER_CONTRACT"></label>
+      <label class="f"><span>Slippage budget
+          <small>ticks per side — a budget, corrected from measurement</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_SLIPPAGE_BUDGET_TICKS"></label>
+      <label class="f"><span>Profit target <small>% of the margin, after the whole round trip</small></span>
+        <input type="number" step="0.1" min="0" data-key="DEFAULT_PROFIT_TARGET_PCT"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h5>Notifications</h5>
+    <div class="cb">
+      <label class="f"><span>Orders sent and acknowledged
+          <small>noisy across eight contracts</small></span>
+        <input type="checkbox" class="chk" data-key="NOTIFY_ORDERS"></label>
+      <label class="f"><span>Fills</span>
+        <input type="checkbox" class="chk" data-key="NOTIFY_FILLS"></label>
+      <label class="f"><span>Positions opened and closed</span>
+        <input type="checkbox" class="chk" data-key="NOTIFY_POSITIONS"></label>
+      <label class="f"><span>Rejects and errors</span>
+        <input type="checkbox" class="chk" data-key="NOTIFY_REJECTS"></label>
+      <label class="f"><span>Withheld orders <small>a guard holding one back</small></span>
+        <input type="checkbox" class="chk" data-key="NOTIFY_WITHHELD"></label>
+      <label class="f"><span>Also send to Telegram</span>
+        <input type="checkbox" class="chk" data-key="TELEGRAM_ENABLED"></label>
+      <label class="f"><span>Telegram chat id</span>
+        <input type="text" data-key="TELEGRAM_CHAT_ID" placeholder="not set"></label>
+      <div class="hint">The bot token lives in <b>.env</b> as
+        <span class="mono">TELEGRAM_BOT_TOKEN</span>. This page never shows it
+        and no API returns it.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h5>Storage &amp; restart</h5>
+    <div class="cb">
+      <label class="f"><span>Database</span>
+        <input type="text" data-key="DATABASE_PATH"></label>
+      <label class="f"><span>Keep the rolling series
+          <small>so a restart does not warm up from nothing</small></span>
+        <input type="checkbox" class="chk" data-key="PERSIST_STATS_SAMPLES"></label>
+      <label class="f"><span>Resume the window after a restart
+          <small>if off for less than this many minutes; longer starts afresh</small></span>
+        <input type="number" step="10" min="0" data-key="RESUME_MAX_GAP_MINUTES"></label>
+      <label class="f"><span>Keep events for <small>days</small></span>
+        <input type="number" step="1" min="1" data-key="EVENT_RETENTION_DAYS"></label>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='settings.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Nexus FIX{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='terminal.css') }}?v={{ asset_version }}">
+<script>try{var fs=localStorage.getItem('ft.fs');if(fs)document.documentElement.style.setProperty('--fs',fs);}catch(e){}</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='app_nav.css') }}?v={{ asset_version }}">
+</head>
+<body class="page-body">
+
+{% include "_topnav.html" %}
+
+<div class="pgbar">
+  <h4>{% block heading %}{% endblock %}</h4>
+  <span class="crumb">{% block crumb %}{% endblock %}</span>
+  <span class="pgbar-right">
+    {% block actions %}{% endblock %}
+  </span>
+</div>
+
+<div class="pagebody">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- One shared modal. No native confirm() / alert() / prompt(), ever. -->
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <h2 id="modal-title"></h2>
+    <p id="modal-warn" class="modal-warn" hidden></p>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="btn">Cancel</button>
+      <button id="modal-confirm" class="btn danger"></button>
+    </div>
+  </div>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="{{ url_for('static', filename='pages.js') }}?v={{ asset_version }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,57 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+config.json
+config.tt-uat.json
+status.tt-uat.json
+status.tt-uat.json.quotes.json
+commands.tt-uat.jsonl
+results.tt-uat.json
+*.db
+*.db-wal
+*.db-shm
+status.json
+commands.jsonl
+logs/
+runtime/
+store/
+.pytest_cache/
+nohup.out
+
+
+# ------------------------------------------
+# Environment / credentials
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Logs / runtime
+logs/
+runtime/
+*.log
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Order test runs (Order tests page / python -m fixtrader.uat)
+*.order-tests.json
+uat-results-*.json
+uat-results-*.html
+*.order-checks.json

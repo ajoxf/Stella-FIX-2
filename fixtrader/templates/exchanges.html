@@ -1,0 +1,189 @@
+{% extends "_page.html" %}
+{% block title %}Exchanges · Nexus FIX{% endblock %}
+{% block subtitle %}exchanges{% endblock %}
+{% block heading %}Exchanges{% endblock %}
+{% block crumb %}<span id="crumb-counts">&mdash;</span>{% endblock %}
+{% block actions %}
+  <span id="link-line" class="link unknown">checking&hellip;</span>
+{% endblock %}
+
+{% block content %}
+<div class="cols exch">
+
+  <!-- ── venues ──────────────────────────────────────────────────────── -->
+  <section class="card">
+    <h5>Venues <span class="note">UAT and PROD are separate venues</span></h5>
+    <div class="cb">
+      <div id="venue-list" class="rowlist"></div>
+      <div class="rowactions">
+        <button id="new-venue" class="btn pri">New venue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the venue form ──────────────────────────────────────────────── -->
+  <section class="card" id="venue-form-card" hidden>
+    <h5><span id="venue-form-title">Venue</span></h5>
+    <div class="cb">
+      <label class="f"><span>Name</span>
+        <input type="text" id="v-name" placeholder="Orient SGX UAT"></label>
+
+      <label class="f"><span>Environment
+          <small>PROD is never a default — it is chosen</small></span>
+        <span class="radiorow">
+          <label class="radio" id="lbl-uat"><input type="radio" name="env" value="UAT"> UAT</label>
+          <label class="radio" id="lbl-prod"><input type="radio" name="env" value="PROD"> PROD</label>
+        </span></label>
+
+      <label class="f"><span>Broker</span>
+        <input type="text" id="v-broker" placeholder="Orient Futures"></label>
+      <label class="f"><span>FIX version</span>
+        <select id="v-fix_version">
+          <option value="FIX.4.4">FIX.4.4</option>
+          <option value="FIX.4.2">FIX.4.2</option>
+          <option value="FIXT.1.1">FIXT.1.1 / FIX50SP2</option>
+        </select></label>
+      <label class="f"><span>Order entry host</span>
+        <input type="text" id="v-host" placeholder="uat-fix.example"></label>
+      <label class="f"><span>Port</span>
+        <input type="number" id="v-port" placeholder="9823"></label>
+      <label class="f"><span>Market data host
+          <small>blank = the same session</small></span>
+        <input type="text" id="v-md_host" placeholder="same session"></label>
+      <label class="f"><span>Market data port</span>
+        <input type="number" id="v-md_port" placeholder="same"></label>
+      <label class="f"><span>FIX Recovery host
+          <small>blank = beside order entry (TT: 11502 → 11508, 11702 → 11708)</small></span>
+        <input type="text" id="v-recovery_host" placeholder="derived"></label>
+      <label class="f"><span>FIX Recovery port</span>
+        <input type="number" id="v-recovery_port" placeholder="derived"></label>
+      <label class="f"><span>SenderCompID</span>
+        <input type="text" id="v-sender_comp_id"></label>
+      <label class="f"><span>TargetCompID</span>
+        <input type="text" id="v-target_comp_id"></label>
+      <label class="f"><span>SenderSubID <small>optional</small></span>
+        <input type="text" id="v-sender_sub_id" placeholder="none"></label>
+      <label class="f"><span>OnBehalfOfCompID <small>optional</small></span>
+        <input type="text" id="v-on_behalf_of_comp_id" placeholder="none"></label>
+      <label class="f"><span>Username</span>
+        <input type="text" id="v-username"></label>
+
+      <label class="f"><span>Password
+          <small id="pw-note">stored in .env, never in config</small></span>
+        <input type="password" id="v-password" placeholder="unchanged"></label>
+
+      <label class="f"><span>Account <small>stamped on every order</small></span>
+        <input type="text" id="v-account"></label>
+      <label class="f"><span>Heartbeat <small>seconds</small></span>
+        <input type="number" id="v-heartbeat_sec" value="30"></label>
+      <label class="f"><span>Reset sequence on logon</span>
+        <input type="checkbox" class="chk" id="v-reset_seq_on_logon"></label>
+      <label class="f"><span>TLS</span>
+        <input type="checkbox" class="chk" id="v-use_tls"></label>
+      <label class="f"><span>Data dictionary</span>
+        <input type="text" id="v-data_dictionary" placeholder="dict/OFSG-FIX44.xml"></label>
+      <label class="f"><span>Enabled</span>
+        <input type="checkbox" class="chk" id="v-enabled"></label>
+
+      <div class="hint">Nothing secret is written to <b>config.json</b>,
+        returned by an API, printed in a log line or put in a toast. The config
+        holds the <b>name</b> of the .env key, never the value — and an empty
+        password field leaves the stored one alone.</div>
+
+      <div class="rowactions">
+        <button id="v-connect" class="btn">Connect</button>
+        <button id="v-test" class="btn" title="Reads the current engine session status; does not reconnect">Status</button>
+        <button id="v-diagnose" class="btn">Diagnose</button>
+        <span class="grow"></span>
+        <button id="v-delete" class="btn danger">Delete</button>
+        <button id="v-save" class="btn pri">Save venue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the three buttons' answer ───────────────────────────────────── -->
+  <section class="card" id="diag-card" hidden>
+    <h5>Result <span class="note" id="diag-when"></span></h5>
+    <p class="hint" id="diag-help" hidden></p>
+    <div class="diag" id="diag-rows"></div>
+  </section>
+
+  <!-- ── contracts ───────────────────────────────────────────────────── -->
+  <section class="card wide">
+    <h5>Contracts <span class="note">a saved contract gets its window within a few seconds</span></h5>
+    <div class="tablewrap">
+      <table class="grid" id="contract-table">
+        <thead><tr>
+          <th>Name</th><th>Symbol</th><th>Venue</th>
+          <th class="r">Tick</th><th class="r">Tick value</th><th class="r">Mult</th>
+          <th>Ccy</th><th class="r">Qty</th><th>Hours</th><th>Enabled</th><th></th>
+        </tr></thead>
+        <tbody id="contract-rows"></tbody>
+      </table>
+    </div>
+    <div class="cb">
+      <div class="rowactions">
+        <button id="new-contract" class="btn pri">New contract</button>
+        <span class="hint grow">A contract with an open position cannot be
+          deleted — the refusal names the position.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the contract form ───────────────────────────────────────────── -->
+  <section class="card" id="contract-form-card" hidden>
+    <h5><span id="contract-form-title">Contract</span></h5>
+    <div class="cb">
+      <label class="f"><span>Name</span><input type="text" id="c-name"></label>
+      <label class="f"><span>Symbol <small>as the venue names it</small></span>
+        <input type="text" id="c-symbol" placeholder="FEFV6-FEFX6"></label>
+      <label class="f"><span>Venue</span><select id="c-venue"></select></label>
+      <label class="f"><span>SecurityID <small>(48), where the venue needs it</small></span>
+        <input type="text" id="c-security_id" placeholder="none"></label>
+      <label class="f"><span>SecurityExchange <small>(207)</small></span>
+        <input type="text" id="c-security_exchange" placeholder="none"></label>
+      <label class="f"><span>Tick size</span>
+        <input type="number" step="0.0001" id="c-tick_size"></label>
+      <label class="f"><span>Tick value <small>money per tick per contract</small></span>
+        <input type="number" step="0.01" id="c-tick_value"></label>
+      <label class="f"><span>Contract multiplier</span>
+        <input type="number" step="1" id="c-contract_multiplier"></label>
+      <label class="f"><span>Currency</span>
+        <input type="text" id="c-currency" value="USD"></label>
+      <label class="f"><span>Minimum qty</span>
+        <input type="number" step="1" id="c-min_qty"></label>
+      <label class="f"><span>Qty step</span>
+        <input type="number" step="1" id="c-qty_step"></label>
+      <label class="f"><span>Maximum qty</span>
+        <input type="number" step="1" id="c-max_qty"></label>
+      <label class="f"><span>Session open <small>venue clock</small></span>
+        <input type="text" id="c-session_open" placeholder="07:25"></label>
+      <label class="f"><span>Session close</span>
+        <input type="text" id="c-session_close" placeholder="19:00"></label>
+      <label class="f"><span>Decimals</span>
+        <input type="number" step="1" id="c-decimals" value="4"></label>
+      <label class="f"><span>Enabled</span>
+        <input type="checkbox" class="chk" id="c-enabled"></label>
+
+      <div class="hint" id="c-spec-note">Specifications read from the venue are
+        labelled <b>venue</b>. Typing over one makes it an <b>override</b>, and
+        the contract carries a mark saying so — every money figure on that
+        window runs through these two numbers.</div>
+
+      <div id="spec-compare" hidden></div>
+
+      <div class="rowactions">
+        <button id="c-read" class="btn">Read specifications from the venue</button>
+        <span class="grow"></span>
+        <button id="c-cancel" class="btn">Close</button>
+        <button id="c-save" class="btn pri">Save contract</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='exchanges.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

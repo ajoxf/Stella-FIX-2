@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FIX Connection | Nexus FIX</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='connection.css') }}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fix_pages.css') }}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app_nav.css') }}?v={{ asset_version }}">
+</head>
+<body>
+  {% include '_topnav.html' %}
+  <main>
+    <div class="heading"><div><p class="eyebrow">SESSION CONTROL</p><h1>FIX connection dashboard</h1><p class="subtitle">Manage your TT order-routing and market-data connections in one place.</p></div><span id="engine-health" class="health">Checking engine…</span></div>
+    <section class="summary" aria-label="Connection controls">
+      <div><div id="overall-state" class="overall">Checking connection…</div><p id="overall-detail">Waiting for the engine's latest status.</p></div>
+      <div class="actions"><button id="connect" class="primary" disabled>Connect FIX</button><button id="reconnect" disabled>Reconnect</button><button id="disconnect" disabled>Disconnect</button></div>
+    </section>
+    <p id="action-result" class="feedback" role="status" aria-live="polite"></p>
+    <div id="sessions" class="sessions" aria-label="FIX sessions"></div>
+    <section class="availability"><span class="info-icon">i</span><div><strong>Ready to find instruments?</strong><p><a href="/instruments">Open Instruments &amp; orders</a> to search TT contracts, subscribe to prices, and review manual UAT orders. Full account-position recovery and automated trading are not enabled.</p></div></section>
+    <section class="activity-panel"><div class="section-heading"><div><h2>Session activity</h2><p>Recent logons, heartbeats and connection messages. Credentials are never displayed.</p></div><span id="updated">Waiting for update</span></div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Session</th><th>Direction</th><th>Message</th><th>Sequence</th></tr></thead><tbody id="activity"><tr><td colspan="5">Waiting for session activity…</td></tr></tbody></table></div></section>
+    <footer>FIX 4.2 <span>•</span> <span id="venue">TT UAT</span> <span>•</span> <a href="/exchanges">Edit connection settings</a></footer>
+  </main>
+  <template id="session-template"><section class="session-card"><div class="card-heading"><h2 class="session-name"></h2><span class="session-status tag"></span></div><div class="endpoint"></div><dl class="identity"><div><dt>Sender CompID</dt><dd class="sender"></dd></div><div><dt>Target CompID</dt><dd class="target"></dd></div><div><dt>Credentials</dt><dd class="credentials"></dd></div></dl><div class="metrics"><div><span>Messages received</span><strong class="incoming">0</strong></div><div><span>Messages sent</span><strong class="outgoing">0</strong></div><div><span>Sequence in / out</span><strong class="sequence">0 / 0</strong></div></div><dl class="timings"><div><dt>Logged on</dt><dd class="logon">—</dd></div><div><dt>Last heartbeat received</dt><dd class="heartbeat">—</dd></div><div><dt>Last message</dt><dd class="last-message">—</dd></div></dl><p class="session-error" hidden></p></section></template>
+  <script src="{{ url_for('static', filename='connection.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

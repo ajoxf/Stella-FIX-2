@@ -1,0 +1,1694 @@
+<title>FIX-Trader Screens</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ---------------------------------------------------------------
+   The terminal's own palette. Taken from the MT5 system's ladder.css
+   rather than invented: bid is blue and ask is red everywhere, and a
+   price never changes colour depending on which panel it sits in.
+   The page commits to this one world — it is a picture of a trading
+   screen, and a trading screen has no light and dark mode.
+   --------------------------------------------------------------- */
+:root{
+  --desk:#8d97a5;        /* the desktop behind the windows */
+  --desk-deep:#78828f;
+  --frame:#cfcfcf;       /* window chrome, taskbar, rails */
+  --frame-2:#c4c4c4;
+  --line:#9d9d9d;
+  --line-soft:#b9b9b9;
+  --panel:#f0f0f0;       /* the inside of a window */
+  --panel-2:#e6e6e6;
+  --field:#fbfbfb;
+  --ink:#1c1c1c;
+  --ink-mute:#5c6066;
+  --ink-faint:#84898f;
+  --bid:#1f7ac2;
+  --bid-soft:#dceffb;
+  --ask:#b83232;
+  --ask-soft:#f7dcdc;
+  --good:#3f8b52;
+  --good-soft:#dcefe0;
+  --warn:#a8730a;
+  --warn-soft:#f6ecd4;
+  --halt:#7a3030;
+  --sans:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --ui:-apple-system,"Segoe UI",Tahoma,"DejaVu Sans",sans-serif;
+  --mono:"IBM Plex Mono","Consolas","DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;background:#20242a;color:#e8eaed;
+  font:15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1500px;margin:0 auto;padding:34px 26px 90px;}
+
+/* ---- page masthead ---- */
+.mast{border-bottom:1px solid #3a4049;padding-bottom:22px;margin-bottom:26px;}
+.mast .eyebrow{
+  font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;
+  color:#8f98a3;margin-bottom:12px;
+}
+.mast h1{
+  font:600 30px/1.15 var(--sans);margin:0 0 10px;text-wrap:balance;letter-spacing:-.01em;
+}
+.mast p{margin:0;max-width:66ch;color:#b3bac2;font-size:14.5px;}
+.mast .stamp{color:#e8b04b;font-family:var(--mono);font-size:13px;}
+
+/* ---- screen switcher ---- */
+nav.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:24px 0 8px;}
+nav.tabs button{
+  font:500 13px/1 var(--sans);color:#c3cad2;background:#2b3038;
+  border:1px solid #3a4049;padding:9px 14px;border-radius:2px;cursor:pointer;
+}
+nav.tabs button:hover{background:#333942;color:#fff;}
+nav.tabs button[aria-selected="true"]{background:#e9edf1;color:#1c1c1c;border-color:#e9edf1;}
+nav.tabs button:focus-visible{outline:2px solid #e8b04b;outline-offset:2px;}
+
+.screenwrap{display:grid;grid-template-columns:minmax(0,1fr) 268px;gap:22px;align-items:start;}
+@media (max-width:1180px){.screenwrap{grid-template-columns:minmax(0,1fr);}}
+
+.caption{margin:18px 0 12px;}
+.caption h2{font:600 19px/1.25 var(--sans);margin:0 0 5px;}
+.caption p{margin:0;color:#b3bac2;font-size:14px;max-width:74ch;}
+
+/* the mock frame */
+.frame{
+  background:var(--desk);border:1px solid #5f6772;border-radius:2px;
+  box-shadow:0 18px 40px rgba(0,0,0,.4);overflow-x:auto;
+}
+.frame > .inner{min-width:1120px;}
+
+/* ---- notes rail ---- */
+.notes{
+  background:#262b32;border:1px solid #3a4049;border-radius:2px;padding:16px 16px 6px;
+}
+.notes h3{
+  font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:#8f98a3;margin:0 0 12px;
+}
+.notes ol{margin:0;padding:0;list-style:none;counter-reset:n;}
+.notes li{
+  counter-increment:n;position:relative;padding:0 0 14px 30px;
+  font-size:13.2px;line-height:1.5;color:#c5ccd4;
+}
+.notes li::before{
+  content:counter(n);position:absolute;left:0;top:1px;
+  width:20px;height:20px;border-radius:2px;background:#3a4049;color:#e8eaed;
+  font:600 11px/20px var(--mono);text-align:center;
+}
+.notes li b{color:#fff;font-weight:600;}
+.notes li.ask::before{background:#e8b04b;color:#1c1c1c;content:"?";}
+.notes li.ask{color:#f0d9a8;}
+
+/* =========================================================
+   THE TERMINAL ITSELF
+   ========================================================= */
+.term{font-family:var(--ui);color:var(--ink);font-size:12px;}
+.term .brand{
+  display:flex;align-items:center;gap:8px;background:var(--frame);
+  border-bottom:1px solid var(--line);padding:4px 8px;
+}
+.brand .mark{width:15px;height:15px;flex:none;}
+.brand .nm{font:600 12px/1 var(--ui);letter-spacing:.09em;color:#1c1c1c;}
+.brand .sub{font-size:10.5px;color:var(--ink-faint);}
+.brand .env{
+  margin-left:auto;font:600 10px/1 var(--mono);letter-spacing:.12em;
+  padding:4px 8px;border-radius:2px;background:#8a6d10;color:#fff;
+}
+.brand .env.prod{background:#a3161d;}
+
+.banner{
+  padding:5px 9px;font-size:11.5px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;
+}
+.banner.crit{background:#f4d5d5;color:#6d1f1f;border-bottom-color:#c98d8d;}
+.banner b{font-weight:600;}
+.banner .acts{margin-left:auto;display:flex;gap:5px;}
+
+.desk{
+  background:var(--desk);padding:12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:11px;
+  align-items:start;position:relative;min-height:520px;
+}
+
+/* ---- one contract window ---- */
+.win{
+  background:var(--frame);border:1px solid #7d838b;
+  box-shadow:1px 1px 0 rgba(0,0,0,.22);
+}
+.win .tbar{
+  display:flex;align-items:center;gap:6px;padding:3px 4px 3px 6px;
+  background:linear-gradient(#d9d9d9,#c6c6c6);border-bottom:1px solid var(--line);
+  cursor:move;
+}
+.tbar .swatch{width:7px;height:7px;flex:none;border:1px solid rgba(0,0,0,.35);}
+.tbar .t{font:600 11.5px/1 var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tbar .venue{font:400 9.5px/1 var(--mono);color:var(--ink-faint);letter-spacing:.05em;}
+.tbar .btns{margin-left:auto;display:flex;gap:2px;}
+.tbar .wb{
+  width:16px;height:15px;border:1px solid #8d8d8d;background:#dcdcdc;
+  font:400 11px/13px var(--ui);color:#333;cursor:pointer;padding:0;
+}
+.tbar .wb:hover{background:#eee;}
+
+.badgebar{
+  display:flex;align-items:center;gap:6px;padding:4px 6px;
+  background:var(--frame-2);border-bottom:1px solid var(--line-soft);
+}
+.state{
+  font:600 9.5px/1 var(--mono);letter-spacing:.1em;padding:3px 6px;border-radius:2px;
+  border:1px solid transparent;
+}
+.s-in{background:var(--good-soft);color:#245c33;border-color:#9dc6a9;}
+.s-armed{background:var(--bid-soft);color:#0f4f80;border-color:#9cc9e8;}
+.s-warm{background:var(--warn-soft);color:#7d5606;border-color:#dcc389;}
+.s-block{background:#e2e2e2;color:#5c6066;border-color:#bcbcbc;}
+.s-halt{background:var(--ask-soft);color:#7a2020;border-color:#d29a9a;}
+.s-idle{background:#e2e2e2;color:#84898f;border-color:#c6c6c6;}
+
+/* the algo switch */
+.algo{display:flex;align-items:center;gap:5px;margin-left:auto;}
+.algo .lb{font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--ink-mute);}
+.sw{width:38px;height:16px;border:1px solid #8a8a8a;background:#dcdcdc;position:relative;border-radius:2px;cursor:pointer;}
+.sw i{
+  position:absolute;top:1px;left:1px;width:16px;height:12px;background:#f6f6f6;
+  border:1px solid #9a9a9a;border-radius:1px;
+}
+.sw span{
+  position:absolute;right:4px;top:2px;font:600 8px/12px var(--mono);color:#7a7a7a;letter-spacing:.06em;
+}
+.sw.on{background:#3f8b52;border-color:#2c6b3c;}
+.sw.on i{left:auto;right:1px;}
+.sw.on span{right:auto;left:5px;color:#fff;}
+
+.wbody{background:var(--panel);padding:5px 6px 6px;display:flex;flex-direction:column;gap:5px;}
+
+/* the market block: two touches */
+.touch{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);}
+.touch div{background:#fff;padding:3px 6px;}
+.touch .k{font:600 8.5px/1 var(--mono);letter-spacing:.12em;color:var(--ink-faint);}
+.touch .v{font:600 17px/1.15 var(--mono);font-variant-numeric:tabular-nums;}
+.touch .sz{font:400 9.5px/1 var(--mono);color:var(--ink-faint);}
+.touch .bidc .v{color:var(--bid);} .touch .askc .v{color:var(--ask);}
+.touch.stale .v{color:#9a9a9a !important;}
+
+.midrow{
+  display:flex;align-items:baseline;gap:6px;padding:2px 2px 0;
+}
+.midrow .k{font:600 8.5px/1 var(--mono);letter-spacing:.12em;color:var(--ink-faint);}
+.midrow .v{font:600 13px/1 var(--mono);font-variant-numeric:tabular-nums;margin-left:auto;}
+
+/* label/value rows */
+.kv{display:flex;align-items:baseline;gap:6px;font-size:11px;}
+.kv .k{font:600 8.5px/1.4 var(--mono);letter-spacing:.11em;color:var(--ink-faint);min-width:38px;}
+.kv .v{font:500 11.5px/1.4 var(--mono);font-variant-numeric:tabular-nums;margin-left:auto;}
+.kv .v.em{font-weight:600;font-size:12.5px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;}
+
+.sect{border-top:1px solid var(--line-soft);padding-top:4px;}
+.sect > .h{
+  font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:var(--ink-faint);
+  text-transform:uppercase;margin-bottom:3px;
+}
+
+/* the z strip — state at a glance, not a chart */
+.zstrip{position:relative;height:15px;background:#fff;border:1px solid var(--line-soft);}
+.zstrip .zone{position:absolute;top:0;bottom:0;}
+.zstrip .zone.entry{background:#f3f3f3;}
+.zstrip .tick{position:absolute;top:0;bottom:0;width:1px;background:#c9c9c9;}
+.zstrip .tick.mid{background:#8a8a8a;}
+.zstrip .tick.thr{background:var(--warn);}
+.zstrip .mk{position:absolute;top:-1px;bottom:-1px;width:3px;background:var(--ink);}
+.zstrip .mk.b{background:var(--bid);} .zstrip .mk.s{background:var(--ask);}
+.zstrip .lbl{position:absolute;top:1px;font:400 8px/1 var(--mono);color:var(--ink-faint);}
+
+.pill{font:600 9px/1 var(--mono);letter-spacing:.08em;padding:2px 5px;border-radius:2px;}
+.p-pass{background:var(--good-soft);color:#245c33;}
+.p-block{background:var(--ask-soft);color:#7a2020;}
+.p-na{background:#e6e6e6;color:#84898f;}
+
+.bar{height:5px;background:#dcdcdc;border:1px solid var(--line-soft);position:relative;}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--warn);}
+.bar.full i{background:var(--good);}
+
+.posline{
+  background:#fff;border:1px solid var(--line-soft);padding:3px 6px;
+  display:flex;align-items:baseline;gap:8px;
+}
+.posline .side{font:600 10px/1 var(--mono);letter-spacing:.1em;padding:2px 5px;border-radius:2px;}
+.side.short{background:var(--ask-soft);color:#7a2020;}
+.side.long{background:var(--bid-soft);color:#0f4f80;}
+.posline .q{font:600 12px/1 var(--mono);font-variant-numeric:tabular-nums;}
+.posline .at{font:400 10px/1 var(--mono);color:var(--ink-faint);}
+.posline .pnl{margin-left:auto;font:600 13px/1 var(--mono);font-variant-numeric:tabular-nums;}
+.pnl.up{color:var(--good);} .pnl.dn{color:var(--ask);}
+.flatline{background:#fff;border:1px solid var(--line-soft);padding:3px 6px;color:var(--ink-faint);font:400 11px/1.4 var(--mono);}
+
+.wfoot{
+  display:flex;align-items:center;gap:6px;padding:3px 6px;background:var(--frame-2);
+  border-top:1px solid var(--line);font:400 9.5px/1.3 var(--mono);color:var(--ink-mute);
+}
+.wfoot .grow{margin-left:auto;}
+.wfoot.bad{background:var(--ask-soft);color:#7a2020;}
+.wfoot.warnf{background:var(--warn-soft);color:#7d5606;}
+
+.btn{
+  font:600 10px/1 var(--ui);letter-spacing:.06em;padding:5px 8px;
+  border:1px solid #8d8d8d;background:linear-gradient(#f2f2f2,#dedede);color:#1c1c1c;cursor:pointer;border-radius:2px;
+}
+.btn:hover{background:linear-gradient(#fff,#e8e8e8);}
+.btn.danger{border-color:#8d3a3a;color:#7a2020;background:linear-gradient(#f6e2e2,#eccccc);}
+.btn.wide{width:100%;}
+.btn.pri{border-color:#2c6b3c;color:#fff;background:linear-gradient(#4f9c63,#3f8b52);}
+.btn.sm{padding:3px 6px;font-size:9.5px;}
+
+/* ---- toasts ---- */
+.toasts{position:absolute;right:14px;top:14px;width:250px;display:flex;flex-direction:column;gap:6px;z-index:5;}
+.toast{
+  background:#fbfbfb;border:1px solid var(--line);border-left-width:4px;
+  padding:6px 8px;box-shadow:0 2px 6px rgba(0,0,0,.3);font-size:11px;
+}
+.toast .hd{display:flex;gap:6px;align-items:baseline;}
+.toast .kind{font:600 9px/1 var(--mono);letter-spacing:.12em;}
+.toast .tm{margin-left:auto;font:400 9px/1 var(--mono);color:var(--ink-faint);}
+.toast .msg{font:500 11.5px/1.35 var(--mono);margin-top:3px;}
+.toast .sub{font-size:10px;color:var(--ink-mute);margin-top:2px;}
+.toast.fill{border-left-color:var(--good);} .toast.fill .kind{color:#245c33;}
+.toast.rej{border-left-color:var(--ask);} .toast.rej .kind{color:#7a2020;}
+.toast.open{border-left-color:var(--bid);} .toast.open .kind{color:#0f4f80;}
+.toast .x{margin-left:6px;color:var(--ink-faint);cursor:pointer;}
+
+/* ---- taskbar ---- */
+.taskbar{
+  display:flex;align-items:center;gap:5px;padding:4px 6px;
+  background:var(--frame);border-top:1px solid var(--line);flex-wrap:wrap;
+}
+.tk{
+  font:500 10.5px/1 var(--ui);padding:5px 8px;border:1px solid #9a9a9a;
+  background:linear-gradient(#e8e8e8,#d6d6d6);border-radius:2px;cursor:pointer;
+}
+.tk.act{background:linear-gradient(#fff,#ececec);border-color:#6f6f6f;font-weight:600;}
+.tk .cnt{
+  display:inline-block;margin-left:4px;background:var(--bid);color:#fff;
+  font:600 8.5px/1 var(--mono);padding:2px 3px;border-radius:2px;
+}
+.taskbar .right{margin-left:auto;display:flex;align-items:center;gap:5px;}
+.link{font:600 9.5px/1 var(--mono);letter-spacing:.06em;padding:5px 7px;border-radius:2px;}
+.link.ok{background:var(--good-soft);color:#245c33;}
+.link.part{background:var(--warn-soft);color:#7d5606;}
+.kill{
+  font:700 10px/1 var(--ui);letter-spacing:.1em;padding:5px 10px;border:1px solid #7a1c1c;
+  background:linear-gradient(#c04141,#a32828);color:#fff;border-radius:2px;cursor:pointer;
+}
+
+/* =========================================================
+   PAGE-STYLE SCREENS (settings, exchanges, blotter)
+   ========================================================= */
+.page{background:var(--panel);min-height:520px;}
+.pgbar{
+  display:flex;align-items:center;gap:10px;padding:6px 10px;
+  background:var(--frame);border-bottom:1px solid var(--line);
+}
+.pgbar h4{margin:0;font:600 13px/1 var(--ui);}
+.pgbar .crumb{font:400 10.5px/1 var(--mono);color:var(--ink-faint);}
+.pgbar .right{margin-left:auto;display:flex;gap:6px;align-items:center;}
+.saved{font:400 10px/1 var(--mono);color:var(--good);}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;padding:12px;align-items:start;}
+.card{background:#fff;border:1px solid var(--line-soft);}
+.card > h5{
+  margin:0;padding:5px 9px;background:var(--frame-2);border-bottom:1px solid var(--line-soft);
+  font:600 10px/1.3 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:#3f434a;
+  display:flex;align-items:center;gap:8px;
+}
+.card > h5 .note{margin-left:auto;font:400 9.5px/1 var(--mono);color:var(--ink-faint);letter-spacing:.04em;text-transform:none;}
+.card .cb{padding:8px 9px;display:flex;flex-direction:column;gap:6px;}
+
+.f{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;}
+.f > label{font-size:11.5px;color:#2c3036;}
+.f > label small{display:block;color:var(--ink-faint);font-size:10px;line-height:1.35;}
+.f input[type=text],.f input[type=number],.f input[type=password],.f select{
+  width:100%;font:500 11.5px/1 var(--mono);padding:4px 5px;border:1px solid #a4a4a4;
+  background:var(--field);color:var(--ink);border-radius:1px;
+}
+.f.wide{grid-template-columns:1fr 1fr;}
+.f .eff{font:400 9.5px/1 var(--mono);color:var(--ink-faint);text-align:right;}
+.f input:focus,.f select:focus{outline:2px solid var(--bid);outline-offset:0;}
+.f .chk{justify-self:end;}
+.hint{font-size:10.5px;color:var(--ink-mute);line-height:1.4;}
+.hint b{color:#2c3036;}
+
+.radiorow{display:flex;gap:6px;}
+.radiorow label{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
+  border:1px solid #a4a4a4;padding:5px;font:600 10.5px/1 var(--mono);letter-spacing:.08em;
+  background:var(--field);cursor:pointer;
+}
+.radiorow label.sel-uat{background:#f6ecd4;border-color:#c39a3a;color:#7d5606;}
+.radiorow label.sel-prod{background:#f4d5d5;border-color:#a3161d;color:#7a2020;}
+
+table.grid{width:100%;border-collapse:collapse;font-size:11px;}
+table.grid th{
+  text-align:left;background:var(--frame-2);border-bottom:1px solid var(--line);
+  font:600 9px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#4a4e55;padding:5px 7px;
+}
+table.grid td{border-bottom:1px solid #e4e4e4;padding:4px 7px;font-family:var(--mono);font-variant-numeric:tabular-nums;}
+table.grid td.txt{font-family:var(--ui);}
+table.grid tr:nth-child(even) td{background:#fafafa;}
+table.grid td.r{text-align:right;}
+.tag{font:600 8.5px/1 var(--mono);letter-spacing:.09em;padding:2px 5px;border-radius:2px;}
+.t-buy{background:var(--bid-soft);color:#0f4f80;}
+.t-sell{background:var(--ask-soft);color:#7a2020;}
+.t-fill{background:var(--good-soft);color:#245c33;}
+.t-work{background:#e6eef6;color:#3b6285;}
+.t-rej{background:#f4d5d5;color:#7a2020;}
+.t-cxl{background:#e6e6e6;color:#5c6066;}
+
+.diag{background:#12161a;color:#cfe3d3;font:400 10.5px/1.55 var(--mono);padding:8px 9px;max-height:190px;overflow:auto;}
+.diag .ok{color:#7fd694;} .diag .bad{color:#ef8b8b;} .diag .dim{color:#7d8891;}
+
+/* the gear overlay */
+.overlay{position:relative;}
+.sheet{
+  position:absolute;inset:26px 12px 12px;background:var(--panel);
+  border:1px solid #6f6f6f;box-shadow:0 10px 26px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;
+}
+.sheet .sh{
+  display:flex;align-items:center;gap:9px;padding:5px 8px;background:var(--frame);
+  border-bottom:1px solid var(--line);
+}
+.sheet .sh b{font:600 12px/1 var(--ui);}
+.sheet .sh .pair{font:500 11px/1 var(--mono);color:var(--ink-mute);}
+.sheet .sh .right{margin-left:auto;display:flex;gap:6px;}
+.sheet .sb{overflow:auto;}
+.sheet .sf{
+  margin-top:auto;display:flex;align-items:center;gap:10px;padding:6px 8px;
+  background:var(--frame);border-top:1px solid var(--line);
+}
+.sheet .sf .hint{margin-right:auto;}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;padding:10px 12px;background:#262b32;border:1px solid #3a4049;margin-top:12px;border-radius:2px;}
+.legend div{display:flex;align-items:center;gap:6px;font-size:12px;color:#c5ccd4;}
+.legend i{width:10px;height:10px;display:block;border:1px solid rgba(0,0,0,.3);}
+
+.qbox{
+  margin-top:34px;background:#262b32;border:1px solid #3a4049;border-left:3px solid #e8b04b;
+  padding:20px 22px;border-radius:2px;
+}
+.qbox h2{font:600 19px/1.25 var(--sans);margin:0 0 6px;}
+.qbox > p{margin:0 0 16px;color:#b3bac2;font-size:14px;max-width:74ch;}
+.qbox ol{margin:0;padding-left:20px;}
+.qbox li{margin-bottom:13px;font-size:14px;line-height:1.55;color:#ccd3da;}
+.qbox li b{color:#fff;}
+.qbox li .opt{color:#e8b04b;font-family:var(--mono);font-size:12.5px;}
+
+/* ---- analysis ---- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);}
+.tile{background:#fff;padding:6px 8px;}
+.tile .k{font:600 8.5px/1 var(--mono);letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;}
+.tile .v{font:600 19px/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:3px;}
+.tile .s{font:400 9.5px/1.3 var(--mono);color:var(--ink-mute);}
+.tile .v.up{color:var(--good);} .tile .v.dn{color:var(--ask);}
+.tile .v.na{color:var(--ink-faint);font-weight:400;}
+
+/* an in-cell bar: a count you can compare without a chart library */
+.cbar{position:relative;height:11px;background:#eee;border:1px solid #ddd;min-width:52px;}
+.cbar i{position:absolute;left:0;top:0;bottom:0;}
+.cbar i.pos{background:#8fc2e8;} .cbar i.neg{background:#e2a3a3;}
+.cbar b{position:absolute;right:3px;top:-1px;font:600 9px/12px var(--mono);color:#2c3036;}
+
+.subtabs{display:flex;gap:0;background:var(--frame-2);border-bottom:1px solid var(--line);}
+.subtabs button{
+  font:500 10.5px/1 var(--ui);padding:6px 11px;border:0;border-right:1px solid var(--line-soft);
+  background:transparent;color:#3f434a;cursor:pointer;
+}
+.subtabs button.on{background:var(--panel);font-weight:600;box-shadow:inset 0 -2px 0 var(--bid);}
+.subtabs .right{margin-left:auto;display:flex;align-items:center;gap:6px;padding:3px 6px;}
+.subtabs select{font:500 10.5px/1 var(--mono);padding:3px 4px;border:1px solid #a4a4a4;background:var(--field);}
+
+.finding{
+  background:#eef4fa;border:1px solid #b8d3e8;border-left:3px solid var(--bid);
+  padding:6px 8px;font-size:11px;line-height:1.5;color:#20364a;
+}
+.finding b{color:#12293d;}
+.finding.warn{background:var(--warn-soft);border-color:#dcc389;border-left-color:var(--warn);color:#5e4204;}
+.finding.warn b{color:#3f2c02;}
+
+[hidden]{display:none !important;}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">ajoxf / FIX-Trader &middot; screens before code</div>
+  <h1>Every screen in FIX-Trader, drawn before a line of it is built</h1>
+  <p>Six screens, at desk scale, in the terminal's real visual language — the grey chrome and the
+  blue-bid / red-ask convention carried over from MT5-Trader. The figures are plausible Orient
+  spread contracts, not lorem. <span class="stamp">Amber notes are decisions I want you to confirm
+  or overrule.</span></p>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-s="main">1 &nbsp;Main terminal</button>
+  <button role="tab" aria-selected="false" data-s="gear">2 &nbsp;Contract settings</button>
+  <button role="tab" aria-selected="false" data-s="settings">3 &nbsp;Settings (desk-wide)</button>
+  <button role="tab" aria-selected="false" data-s="exch">4 &nbsp;Exchanges &amp; FIX</button>
+  <button role="tab" aria-selected="false" data-s="blot">5 &nbsp;Blotter &amp; events</button>
+  <button role="tab" aria-selected="false" data-s="anly">6 &nbsp;Analysis</button>
+</nav>
+
+<!-- ============================ 1. MAIN ============================ -->
+<section data-screen="main">
+  <div class="caption">
+    <h2>Main terminal</h2>
+    <p>One window per contract, six shown here in six different states. Everything refreshes twice a
+    second. Nothing on this screen sends a discretionary order — the only controls are the algo
+    switch, CLOSE NOW and KILL ALL.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="10.9" width="11" height="2.2" fill="#1c1c1c"></rect>
+          <circle cx="7" cy="12" r="3.4" fill="#1f7ac2"></circle>
+          <circle cx="17" cy="12" r="3.4" fill="#b83232"></circle>
+        </svg>
+        <span class="nm">NEXUS FIX</span>
+        <span class="sub">spread terminal &middot; Orient Futures</span>
+        <span class="env">UAT</span>
+      </div>
+
+      <div class="banner crit">
+        <b>UNCLAIMED</b>
+        <span>SGX FEF Nov/Dec &mdash; the venue reports 2 lots short that this book cannot explain.
+        Nothing has been closed. Recovered 13:04:22 from sequence 1,904.</span>
+        <span class="acts">
+          <button class="btn sm">Adopt it</button>
+          <button class="btn sm danger">Close it</button>
+        </span>
+      </div>
+
+      <div class="desk">
+
+        <!-- 1. position on -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#3f8b52"></span>
+            <span class="t">Iron ore Oct/Nov</span>
+            <span class="venue">FEFV6-FEFX6</span>
+            <span class="btns"><button class="wb" title="This contract's settings">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-in">IN</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw on"><i></i><span>ON</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch">
+              <div class="bidc"><div class="k">BID</div><div class="v">0.595</div><div class="sz">42</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">0.605</div><div class="sz">18</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v">0.6000</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">0.5120</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">0.0860</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">+1.02</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">400/400</span></div>
+              </div>
+              <div class="zstrip" style="margin-top:4px" title="z position between the two entry thresholds">
+                <div class="zone entry" style="left:0;width:20%"></div>
+                <div class="zone entry" style="right:0;width:20%"></div>
+                <div class="tick thr" style="left:20%"></div>
+                <div class="tick mid" style="left:50%"></div>
+                <div class="tick thr" style="left:80%"></div>
+                <div class="mk s" style="left:63%"></div>
+                <span class="lbl" style="left:3px">&minus;2.5</span>
+                <span class="lbl" style="right:3px">+2.5</span>
+              </div>
+              <div class="grid2" style="margin-top:4px">
+                <div class="kv"><span class="k">LO&nbsp;&minus;2</span><span class="v">0.3400</span></div>
+                <div class="kv"><span class="k">HI&nbsp;+2</span><span class="v">0.6840</span></div>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v">2.4&times; <span class="pill p-pass">PASS</span></span></div>
+              <div class="grid2">
+                <div class="kv"><span class="k">H</span><span class="v">0.38</span></div>
+                <div class="kv"><span class="k">HL</span><span class="v">18.4</span></div>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="posline">
+                <span class="side short">SHORT</span><span class="q">5</span>
+                <span class="at">@ 0.6930</span>
+                <span class="pnl up">+$46</span>
+              </div>
+              <div class="grid2" style="margin-top:4px">
+                <div class="kv"><span class="k">B/E</span><span class="v">0.6812</span></div>
+                <div class="kv"><span class="k">TGT</span><span class="v">0.6465</span></div>
+                <div class="kv"><span class="k">STOP</span><span class="v">0.8560</span></div>
+                <div class="kv"><span class="k">HELD</span><span class="v">41m</span></div>
+              </div>
+            </div>
+            <button class="btn wide danger" style="margin-top:2px">CLOSE NOW</button>
+          </div>
+          <div class="wfoot"><span>0.3s</span><span class="grow">FILL &middot; SELL 5 @ 0.6930</span></div>
+        </section>
+
+        <!-- 2. armed, flat -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#1f7ac2"></span>
+            <span class="t">Iron ore Nov/Dec</span>
+            <span class="venue">FEFX6-FEFZ6</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-armed">ARMED</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw on"><i></i><span>ON</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch">
+              <div class="bidc"><div class="k">BID</div><div class="v">0.340</div><div class="sz">25</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">0.355</div><div class="sz">30</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v">0.3475</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">0.3120</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">0.0490</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">+0.72</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">400/400</span></div>
+              </div>
+              <div class="zstrip" style="margin-top:4px">
+                <div class="zone entry" style="left:0;width:20%"></div>
+                <div class="zone entry" style="right:0;width:20%"></div>
+                <div class="tick thr" style="left:20%"></div>
+                <div class="tick mid" style="left:50%"></div>
+                <div class="tick thr" style="left:80%"></div>
+                <div class="mk" style="left:58%"></div>
+                <span class="lbl" style="left:3px">&minus;2.5</span>
+                <span class="lbl" style="right:3px">+2.5</span>
+              </div>
+              <div class="grid2" style="margin-top:4px">
+                <div class="kv"><span class="k">LO&nbsp;&minus;2</span><span class="v">0.2140</span></div>
+                <div class="kv"><span class="k">HI&nbsp;+2</span><span class="v">0.4100</span></div>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v">1.8&times; <span class="pill p-pass">PASS</span></span></div>
+              <div class="grid2">
+                <div class="kv"><span class="k">H</span><span class="v">0.41</span></div>
+                <div class="kv"><span class="k">HL</span><span class="v">22.0</span></div>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="flatline">flat &middot; next entry at z &plusmn;2.00 &rarr; 0.2140 / 0.4100</div>
+              <div class="grid2" style="margin-top:4px">
+                <div class="kv"><span class="k">QTY</span><span class="v">5</span></div>
+                <div class="kv"><span class="k">P&amp;L&nbsp;D</span><span class="v">+$130</span></div>
+              </div>
+            </div>
+            <button class="btn wide" style="margin-top:2px" disabled>CLOSE NOW</button>
+          </div>
+          <div class="wfoot"><span>0.2s</span><span class="grow">ARMED &middot; waiting for &plusmn;2.00</span></div>
+        </section>
+
+        <!-- 3. warming -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#a8730a"></span>
+            <span class="t">A50 Oct/Nov</span>
+            <span class="venue">CNV6-CNX6</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-warm">WARMING</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw on"><i></i><span>ON</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch">
+              <div class="bidc"><div class="k">BID</div><div class="v">&minus;14.0</div><div class="sz">12</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">&minus;11.5</div><div class="sz">9</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v">&minus;12.75</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">&minus;13.42</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">4.18</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">+0.16</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">248/400</span></div>
+              </div>
+              <div class="bar" style="margin-top:5px"><i style="width:62%"></i></div>
+              <div class="kv" style="margin-top:3px"><span class="k">WARM</span><span class="v">62% &middot; 12m left</span></div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v"><span class="pill p-na">&mdash;</span></span></div>
+              <div class="grid2">
+                <div class="kv"><span class="k">H</span><span class="v">&mdash;</span></div>
+                <div class="kv"><span class="k">HL</span><span class="v">&mdash;</span></div>
+              </div>
+              <div class="hint" style="margin-top:3px">No entry until the window is full.</div>
+            </div>
+            <div class="sect">
+              <div class="flatline">flat &middot; collecting</div>
+            </div>
+            <button class="btn wide" style="margin-top:2px" disabled>CLOSE NOW</button>
+          </div>
+          <div class="wfoot warnf"><span>0.4s</span><span class="grow">WARMING since 12:58</span></div>
+        </section>
+
+        <!-- 4. blocked -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#5c6066"></span>
+            <span class="t">TSR20 Nov/Dec</span>
+            <span class="venue">TFX6-TFZ6</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-block">BLOCKED</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw on"><i></i><span>ON</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch">
+              <div class="bidc"><div class="k">BID</div><div class="v">&minus;22.4</div><div class="sz">6</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">&minus;21.8</div><div class="sz">4</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v">&minus;22.10</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">&minus;23.05</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">0.42</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">+2.26</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">400/400</span></div>
+              </div>
+              <div class="zstrip" style="margin-top:4px">
+                <div class="zone entry" style="left:0;width:20%"></div>
+                <div class="zone entry" style="right:0;width:20%"></div>
+                <div class="tick thr" style="left:20%"></div>
+                <div class="tick mid" style="left:50%"></div>
+                <div class="tick thr" style="left:80%"></div>
+                <div class="mk s" style="left:95%"></div>
+                <span class="lbl" style="left:3px">&minus;2.5</span>
+                <span class="lbl" style="right:3px">+2.5</span>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v">0.7&times; <span class="pill p-block">BLOCK</span></span></div>
+              <div class="grid2">
+                <div class="kv"><span class="k">H</span><span class="v">0.44</span></div>
+                <div class="kv"><span class="k">HL</span><span class="v">31.2</span></div>
+              </div>
+              <div class="hint" style="margin-top:3px"><b>SELL withheld.</b> Sigma 0.42 is 0.7&times;
+              the round trip of 0.60 &mdash; below the 1.5&times; this contract requires.</div>
+            </div>
+            <div class="sect">
+              <div class="flatline">flat &middot; would be SELL 3 at z +2.26</div>
+            </div>
+            <button class="btn wide" style="margin-top:2px" disabled>CLOSE NOW</button>
+          </div>
+          <div class="wfoot"><span>0.9s</span><span class="grow">BLOCKED &middot; edge filter</span></div>
+        </section>
+
+        <!-- 5. halted / stale -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#b83232"></span>
+            <span class="t">Brent Dec/Jan</span>
+            <span class="venue">BRNZ6-BRNF7</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-halt">HALTED</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw on"><i></i><span>ON</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch stale">
+              <div class="bidc"><div class="k">BID</div><div class="v">0.41</div><div class="sz">&mdash;</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">0.44</div><div class="sz">&mdash;</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v" style="color:#9a9a9a">0.425</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">0.3980</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">0.0310</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">&mdash;</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">400/400</span></div>
+              </div>
+              <div class="hint" style="margin-top:4px">Z is not computed on a stale quote. It is not
+              shown as its last value either &mdash; that reads as live.</div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v"><span class="pill p-na">&mdash;</span></span></div>
+            </div>
+            <div class="sect">
+              <div class="posline">
+                <span class="side long">LONG</span><span class="q">2</span>
+                <span class="at">@ 0.3610</span>
+                <span class="pnl">&mdash;</span>
+              </div>
+              <div class="hint" style="margin-top:3px"><b>The guard withholds orders, never a close.</b>
+              CLOSE NOW still works and crosses at whatever the venue shows.</div>
+            </div>
+            <button class="btn wide danger" style="margin-top:2px">CLOSE NOW</button>
+          </div>
+          <div class="wfoot bad"><span>41.2s</span><span class="grow">STALE &middot; no ICE market data since 13:21:38</span></div>
+        </section>
+
+        <!-- 6. idle -->
+        <section class="win">
+          <div class="tbar">
+            <span class="swatch" style="background:#84898f"></span>
+            <span class="t">WTI Dec/Jan</span>
+            <span class="venue">CLZ6-CLF7</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+          <div class="badgebar">
+            <span class="state s-idle">IDLE</span>
+            <span class="algo"><span class="lb">ALGO</span><span class="sw"><i></i><span>OFF</span></span></span>
+          </div>
+          <div class="wbody">
+            <div class="touch">
+              <div class="bidc"><div class="k">BID</div><div class="v">0.52</div><div class="sz">88</div></div>
+              <div class="askc"><div class="k">ASK</div><div class="v">0.53</div><div class="sz">64</div></div>
+            </div>
+            <div class="midrow"><span class="k">MID</span><span class="v">0.5250</span></div>
+            <div class="sect">
+              <div class="grid2">
+                <div class="kv"><span class="k">MEAN</span><span class="v">0.4870</span></div>
+                <div class="kv"><span class="k">SIGMA</span><span class="v">0.0240</span></div>
+                <div class="kv"><span class="k">Z</span><span class="v em">+1.58</span></div>
+                <div class="kv"><span class="k">N</span><span class="v">400/400</span></div>
+              </div>
+              <div class="zstrip" style="margin-top:4px">
+                <div class="zone entry" style="left:0;width:20%"></div>
+                <div class="zone entry" style="right:0;width:20%"></div>
+                <div class="tick thr" style="left:20%"></div>
+                <div class="tick mid" style="left:50%"></div>
+                <div class="tick thr" style="left:80%"></div>
+                <div class="mk" style="left:74%"></div>
+                <span class="lbl" style="left:3px">&minus;2.5</span>
+                <span class="lbl" style="right:3px">+2.5</span>
+              </div>
+            </div>
+            <div class="sect">
+              <div class="kv"><span class="k">EDGE</span><span class="v">3.1&times; <span class="pill p-pass">PASS</span></span></div>
+              <div class="grid2">
+                <div class="kv"><span class="k">H</span><span class="v">0.47</span></div>
+                <div class="kv"><span class="k">HL</span><span class="v">26.8</span></div>
+              </div>
+              <div class="hint" style="margin-top:3px">Statistics keep running with the algo off &mdash;
+              that is how a trader decides whether to switch it on.</div>
+            </div>
+            <div class="sect"><div class="flatline">flat &middot; algo off</div></div>
+            <button class="btn wide" style="margin-top:2px" disabled>CLOSE NOW</button>
+          </div>
+          <div class="wfoot"><span>0.2s</span><span class="grow">IDLE</span></div>
+        </section>
+
+        <div class="toasts">
+          <div class="toast fill">
+            <div class="hd"><span class="kind">FILLED</span><span class="tm">13:41:07</span><span class="x">&times;</span></div>
+            <div class="msg">SELL 5 @ 0.6930</div>
+            <div class="sub">Iron ore Oct/Nov &middot; OPEN SHORT at z +2.14</div>
+          </div>
+          <div class="toast open">
+            <div class="hd"><span class="kind">CLOSED</span><span class="tm">13:12:44</span><span class="x">&times;</span></div>
+            <div class="msg">BUY 4 @ 0.2980 &middot; +$130 net</div>
+            <div class="sub">Iron ore Nov/Dec &middot; target reached, held 1h 22m</div>
+          </div>
+          <div class="toast rej">
+            <div class="hd"><span class="kind">REJECTED</span><span class="tm">13:02:19</span><span class="x">&times;</span></div>
+            <div class="msg">2 &mdash; Exchange closed</div>
+            <div class="sub">TSR20 Nov/Dec &middot; tag 58: "Instrument not open for trading"</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="taskbar">
+        <button class="tk">+</button>
+        <button class="tk act">Iron ore Oct/Nov<span class="cnt">1</span></button>
+        <button class="tk">Iron ore Nov/Dec</button>
+        <button class="tk">A50 Oct/Nov</button>
+        <button class="tk">TSR20 Nov/Dec</button>
+        <button class="tk">Brent Dec/Jan</button>
+        <button class="tk">WTI Dec/Jan</button>
+        <button class="tk">Blotter</button>
+        <button class="tk">Positions</button>
+        <span class="right">
+          <span class="link part">SGX ok &middot; ICE stale &middot; CME ok</span>
+          <button class="tk">Sound: on</button>
+          <button class="tk">Tidy</button>
+          <button class="tk">Settings</button>
+          <button class="tk">Exchanges</button>
+          <span class="link ok">loop 96ms</span>
+          <button class="kill">KILL ALL</button>
+        </span>
+      </div>
+
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>Six states, six windows.</b> IN, ARMED, WARMING, BLOCKED, HALTED, IDLE. The badge and
+        the footer always agree, so the state is readable from across the desk.</li>
+        <li><b>The z-strip</b> is the one non-numeric thing on the window: a 15px rule showing where z
+        sits between the two entry thresholds.</li>
+        <li><b>Bands are shown as prices</b> (LO&nbsp;&minus;2 / HI&nbsp;+2), not only as a z, because you
+        check a level against the market.</li>
+        <li><b>A blocked signal says why in words</b> and names the number that failed &mdash; sigma 0.42
+        against a 0.60 round trip.</li>
+        <li><b>Stale kills the z, not the close.</b> Brent shows an em dash rather than a last-known
+        value, and CLOSE NOW stays live.</li>
+        <li><b>Statistics run with the algo off</b> (WTI) &mdash; otherwise you cannot judge whether to
+        turn it on.</li>
+        <li><b>UNCLAIMED is a red banner with two buttons</b> and closes nothing by itself.</li>
+        <li><b>UAT is stamped top-right</b> in amber; PROD is the same badge in red.</li>
+        <li class="ask"><b>The z-strip:</b> keep it, or numbers only? You said no graphs &mdash; I read
+        this as an indicator, not a chart, but it is the one thing on the window that is not a
+        figure.</li>
+        <li class="ask"><b>Window size</b> is ~270&times;415, so eight fit a 1920&times;1080 desk with room.
+        Bigger figures and fewer windows, or as-is?</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ 2. GEAR ============================ -->
+<section data-screen="gear" hidden>
+  <div class="caption">
+    <h2>Contract settings &mdash; the gear on each window</h2>
+    <p>Opens over its own window, so you never lose sight of which contract you are changing. Blank
+    means "use the desk default", and the grey figure beside each box is the value in force.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="10.9" width="11" height="2.2" fill="#1c1c1c"></rect>
+          <circle cx="7" cy="12" r="3.4" fill="#1f7ac2"></circle>
+          <circle cx="17" cy="12" r="3.4" fill="#b83232"></circle>
+        </svg>
+        <span class="nm">NEXUS FIX</span><span class="sub">spread terminal</span>
+        <span class="env">UAT</span>
+      </div>
+      <div class="desk overlay" style="min-height:600px">
+        <div class="sheet">
+          <div class="sh">
+            <b>Contract settings</b>
+            <span class="pair">Iron ore Oct/Nov &middot; FEFV6-FEFX6 &middot; SGX-UAT &middot; tick 0.01 = $1.00</span>
+            <span class="right"><button class="btn sm">Close</button></span>
+          </div>
+          <div class="sb">
+            <div class="cols">
+
+              <div class="card">
+                <h5>Signal <span class="note">the rolling window</span></h5>
+                <div class="cb">
+                  <div class="f"><label>Lookback <small>samples in the rolling window</small></label><input type="number" value="400"></div>
+                  <div class="f"><label>Recompute mean &amp; sigma <small>seconds; 0 = every update</small></label><input type="number" value="300"></div>
+                  <div class="f"><label>Entry threshold <small>|z| to enter</small></label><input type="number" step="0.1" value="2.0"></div>
+                  <div class="f"><label>Exit mode</label><select><option>Profit target</option><option>Z-score</option><option>Either, first to fire</option></select></div>
+                  <div class="f"><label>Exit threshold <small>|z|; used by the two z modes</small></label><input type="number" step="0.1" value="0.5" disabled></div>
+                  <div class="f"><label>Stop-loss <small>|z| emergency exit &mdash; always a z, in every mode</small></label><input type="number" step="0.1" value="4.0"></div>
+                  <div class="f"><label>Time stop <small>minutes; 0 = none</small></label><input type="number" value="0"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h5>Filters <span class="note">entries only</span></h5>
+                <div class="cb">
+                  <div class="f"><label>Hurst filter <small>H below the threshold is mean-reverting</small></label><input class="chk" type="checkbox" checked></div>
+                  <div class="f"><label>Hurst threshold</label><input type="number" step="0.05" value="0.50"></div>
+                  <div class="f"><label>Edge filter <small>sigma against the round trip</small></label><input class="chk" type="checkbox" checked></div>
+                  <div class="f"><label>Minimum multiple <small>sigma must be at least this &times; cost</small></label><input type="number" step="0.1" value="1.5"></div>
+                  <div class="f"><label>Half-life filter</label><input class="chk" type="checkbox"></div>
+                  <div class="f"><label>Maximum half-life <small>periods</small></label><input type="number" value="60" placeholder="default"><div class="eff">desk 60</div></div>
+                  <div class="f"><label>Minimum book size <small>lots on the touch, both sides</small></label><input type="number" value="10"></div>
+                  <div class="f"><label>Widest book to cross <small>ticks</small></label><input type="number" value="3"></div>
+                  <div class="hint">A filter can withhold an order. <b>No filter ever prevents a close.</b></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h5>Size &amp; risk</h5>
+                <div class="cb">
+                  <div class="f"><label>Quantity per entry <small>contracts</small></label><input type="number" value="5"></div>
+                  <div class="f"><label>Maximum position</label><input type="number" value="15"></div>
+                  <div class="f"><label>Trades per day</label><input type="number" value="8"></div>
+                  <div class="f"><label>Daily loss limit <small>USD; hitting it turns this algo off and says so</small></label><input type="number" value="1500"></div>
+                  <div class="f"><label>Cooldown after a trade <small>seconds</small></label><input type="number" value="60"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h5>Execution</h5>
+                <div class="cb">
+                  <div class="f"><label>Entry order</label><select><option>Limit</option><option>Market</option></select></div>
+                  <div class="f"><label>Exit order</label><select><option>Market</option><option>Limit</option></select></div>
+                  <div class="f"><label>Limit offset <small>ticks from the touch</small></label><input type="number" step="1" value="1"></div>
+                  <div class="f"><label>Unfilled after <small>seconds</small></label><input type="number" value="30"></div>
+                  <div class="f"><label>Then <small>what happens to an unfilled entry</small></label><select><option>Cancel it</option><option>Cross at market</option></select></div>
+                  <div class="f"><label>Time in force</label><select><option>DAY</option><option>IOC</option><option>GTC</option></select></div>
+                  <div class="f"><label>Flat at <small>venue clock; blank = hold</small></label><input type="text" value="17:10" placeholder="hold"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h5>Costs <span class="note">these feed the edge filter and the target</span></h5>
+                <div class="cb">
+                  <div class="f"><label>Commission <small>per contract per side</small></label><input type="number" step="0.01" value="1.20"></div>
+                  <div class="f"><label>Exchange fee <small>per contract per side</small></label><input type="number" step="0.01" value="0.55"></div>
+                  <div class="f"><label>Clearing fee <small>per contract per side</small></label><input type="number" step="0.01" value="0.15"></div>
+                  <div class="f"><label>Slippage budget <small>ticks per side</small></label><input type="number" step="0.1" value="0.5"><div class="eff">measured 0.3</div></div>
+                  <div class="f"><label>Profit target</label><input type="number" step="0.1" value="2.0"></div>
+                  <div class="f"><label>as a percentage of</label><select><option>Initial margin</option><option>Notional</option><option>Sigma at entry</option></select></div>
+                  <div class="hint">Round trip <b>$3.80 per contract</b> = 0.38 ticks. Break-even
+                  0.6812, target <b>0.6465</b>. Where margin cannot be read from the venue there is no
+                  target and the window shows an em dash &mdash; a target of 0.00 would read as
+                  "get out at break-even", which is a different instruction.</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h5>Contract &amp; display</h5>
+                <div class="cb">
+                  <div class="f"><label>Window title</label><input type="text" value="Iron ore Oct/Nov"></div>
+                  <div class="f"><label>Decimals</label><input type="number" value="4"></div>
+                  <div class="f"><label>Tick size <small>from the venue</small></label><input type="number" step="0.01" value="0.01"><div class="eff">venue</div></div>
+                  <div class="f"><label>Tick value <small>from the venue</small></label><input type="number" step="0.01" value="1.00"><div class="eff">venue</div></div>
+                  <div class="f"><label>Enabled</label><input class="chk" type="checkbox" checked></div>
+                  <div class="hint">Specifications read from the venue's security definition are
+                  labelled <b>venue</b>. Typing over one makes it an override, and the window says so.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div class="sf">
+            <span class="hint">Applies at once. Blank means the desk default &mdash; and 0 is a real number.</span>
+            <button class="btn">Revert</button>
+            <button class="btn pri">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div class="taskbar">
+        <button class="tk">+</button>
+        <button class="tk act">Iron ore Oct/Nov</button>
+        <button class="tk">Iron ore Nov/Dec</button>
+        <span class="right"><span class="link ok">SGX ok</span><button class="tk">Settings</button><button class="kill">KILL ALL</button></span>
+      </div>
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>Six groups</b>, ported from the Stat-Arb settings but scoped to one contract: signal,
+        filters, size &amp; risk, execution, costs, contract.</li>
+        <li><b>Every cost input is on the same card as the number it produces</b> &mdash; round trip,
+        break-even, target &mdash; so a change is checked where it is made.</li>
+        <li><b>Exit threshold greys out</b> in profit mode rather than disappearing, so you can see
+        what the other mode would use.</li>
+        <li><b>Venue-derived specs are labelled</b>. Typing over one is an override and the window
+        carries a mark.</li>
+        <li class="ask"><b>Profit target basis</b> &mdash; margin, notional, or sigma at entry? I have
+        defaulted to <span class="opt">initial margin</span>, which is what MT5-Trader uses. Margin
+        needs the venue to report it; if Orient does not, notional is the reliable one.</li>
+        <li class="ask"><b>Limit entries</b> add re-pricing, timeouts and queue handling. Worth it,
+        or should the algo only ever cross with market/IOC?</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ 3. SETTINGS ============================ -->
+<section data-screen="settings" hidden>
+  <div class="caption">
+    <h2>Settings &mdash; desk-wide</h2>
+    <p>How the system runs, as opposed to how one contract is traded. Every default here is what a
+    blank box on a contract falls back to.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+      <div class="pgbar">
+        <h4>Settings</h4>
+        <span class="crumb">config.json &middot; saved atomically &middot; secrets in .env</span>
+        <span class="right">
+          <span class="saved">saved 13:38:02</span>
+          <button class="btn">Revert</button>
+          <button class="btn pri">Save</button>
+          <button class="btn">Back to the desk</button>
+        </span>
+      </div>
+      <div class="page">
+        <div class="cols">
+
+          <div class="card">
+            <h5>The loop</h5>
+            <div class="cb">
+              <div class="f"><label>Screen refresh <small>seconds &mdash; every window, every figure</small></label><input type="number" step="0.1" value="0.5"></div>
+              <div class="f"><label>Engine pass <small>seconds</small></label><input type="number" step="0.05" value="0.1"></div>
+              <div class="f"><label>Command drain <small>seconds &mdash; a switch must not wait for a price</small></label><input type="number" step="0.01" value="0.02"></div>
+              <div class="hint">Achieved: <b>96 ms</b> engine, <b>0.50 s</b> screen, oldest snapshot 0.4 s.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Master switches</h5>
+            <div class="cb">
+              <div class="f"><label>Algo master <small>off stands every contract down at once</small></label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Ask before CLOSE NOW</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Sound</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>At shutdown, open positions</label><select><option>Ask</option><option>Always close</option><option>Never close</option></select></div>
+              <div class="hint">An unanswered shutdown prompt means <b>no</b>. Working orders of ours
+              are cancelled at startup and at shutdown either way.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Guards</h5>
+            <div class="cb">
+              <div class="f"><label>Quote stale after <small>seconds; 0 = off</small></label><input type="number" value="15"></div>
+              <div class="f"><label>Price jump <small>sigma</small></label><input type="number" step="0.5" value="5.0"></div>
+              <div class="f"><label>Settle after a jump <small>seconds</small></label><input type="number" step="0.5" value="2.0"></div>
+              <div class="f"><label>Refuse entries outside venue hours</label><input class="chk" type="checkbox" checked></div>
+              <div class="hint">The venue clock is <b>measured</b>, not assumed. With no measurement
+              the cutoff does not fire and the taskbar says the clock is unmeasured.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Desk limits</h5>
+            <div class="cb">
+              <div class="f"><label>Daily loss limit, all contracts <small>USD</small></label><input type="number" value="6000"></div>
+              <div class="f"><label>Maximum open contracts</label><input type="number" value="40"></div>
+              <div class="f"><label>Maximum contracts trading at once</label><input type="number" value="8"></div>
+              <div class="hint">Hitting a desk limit turns <b>every</b> algo off and names the limit.
+              A contract limit turns off only that contract.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Defaults for a new contract <span class="note">a blank box falls back here</span></h5>
+            <div class="cb">
+              <div class="f"><label>Lookback</label><input type="number" value="400"></div>
+              <div class="f"><label>Recompute mean &amp; sigma <small>seconds</small></label><input type="number" value="300"></div>
+              <div class="f"><label>Entry threshold</label><input type="number" step="0.1" value="2.0"></div>
+              <div class="f"><label>Stop-loss</label><input type="number" step="0.1" value="4.0"></div>
+              <div class="f"><label>Hurst threshold</label><input type="number" step="0.05" value="0.50"></div>
+              <div class="f"><label>Minimum edge multiple</label><input type="number" step="0.1" value="1.5"></div>
+              <div class="f"><label>Profit target</label><input type="number" step="0.1" value="2.0"></div>
+              <div class="f"><label>as a percentage of</label><select><option>Initial margin</option><option>Notional</option><option>Sigma at entry</option></select></div>
+              <div class="f"><label>Cooldown <small>seconds</small></label><input type="number" value="60"></div>
+              <div class="f"><label>Slippage budget <small>ticks per side</small></label><input type="number" step="0.1" value="0.5"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Notifications</h5>
+            <div class="cb">
+              <div class="f"><label>Order sent and acknowledged</label><input class="chk" type="checkbox"></div>
+              <div class="f"><label>Fills</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Positions opened and closed</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Rejects and errors</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Withheld orders <small>a guard or filter holding one back</small></label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Also send to Telegram</label><input class="chk" type="checkbox"></div>
+              <div class="f"><label>Telegram chat id</label><input type="text" value="" placeholder="not set"></div>
+              <div class="hint">The bot token lives in <b>.env</b> under <span style="font-family:var(--mono)">TELEGRAM_BOT_TOKEN</span>.
+              This page never shows it and no API returns it.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h5>Storage &amp; restart</h5>
+            <div class="cb">
+              <div class="f"><label>Database</label><input type="text" value="fixtrader.db"></div>
+              <div class="f"><label>Keep the rolling series <small>so a restart does not warm up from nothing</small></label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>Keep events for <small>days</small></label><input type="number" value="90"></div>
+              <div class="hint"><b>Screen refresh</b> and <b>engine pass</b> need a restart to take
+              effect &mdash; they are named here rather than warning on every save.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="taskbar">
+        <button class="tk">+</button><button class="tk">Back to the desk</button>
+        <span class="right"><span class="link ok">SGX ok &middot; CME ok</span><button class="tk act">Settings</button><button class="tk">Exchanges</button><button class="kill">KILL ALL</button></span>
+      </div>
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>0.5 s is a field, not a constant</b>, and the achieved figure is shown beside it.</li>
+        <li><b>Defaults sit in their own card</b> so it is obvious which numbers a blank contract box
+        inherits.</li>
+        <li><b>Only two settings need a restart</b>, and they say so here instead of a warning on
+        every save.</li>
+        <li><b>Secrets are named, never shown.</b> The Telegram token is an .env key.</li>
+        <li class="ask"><b>Telegram</b> &mdash; worth wiring, or are on-screen toasts enough? It is the
+        one notification channel that reaches you away from the desk.</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ 4. EXCHANGES ============================ -->
+<section data-screen="exch" hidden>
+  <div class="caption">
+    <h2>Exchanges &amp; FIX</h2>
+    <p>Where the system is connected and where contracts are added. The FIX fields are laid out now
+    and the session is stubbed &mdash; Connect, Test and Diagnose all run against the simulator until
+    Orient's UAT details arrive.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+      <div class="pgbar">
+        <h4>Exchanges</h4>
+        <span class="crumb">2 venues &middot; 6 contracts</span>
+        <span class="right">
+          <span class="link part">CONNECTED &mdash; ICE market data stale 41s</span>
+          <button class="btn">Back to the desk</button>
+        </span>
+      </div>
+      <div class="page">
+        <div class="cols" style="grid-template-columns:minmax(340px,1.1fr) minmax(340px,1fr);">
+
+          <div class="card">
+            <h5>Orient SGX &mdash; session <span class="note">LOGGED ON &middot; seq 812 out / 1,904 in</span></h5>
+            <div class="cb">
+              <div class="f wide"><label>Name</label><input type="text" value="Orient SGX UAT"></div>
+              <div class="f wide"><label>Environment <small>PROD is never the default</small></label>
+                <div class="radiorow">
+                  <label class="sel-uat"><input type="radio" name="env" checked> UAT</label>
+                  <label><input type="radio" name="env"> PROD</label>
+                </div>
+              </div>
+              <div class="f wide"><label>FIX version</label><select><option>FIX.4.4</option><option>FIX.4.2</option><option>FIXT.1.1 / FIX50SP2</option></select></div>
+              <div class="f wide"><label>Order entry host : port</label><input type="text" value="uat-fix.orientfutures.example : 9823"></div>
+              <div class="f wide"><label>Market data host : port <small>blank = the same session</small></label><input type="text" value="" placeholder="same session"></div>
+              <div class="f wide"><label>SenderCompID</label><input type="text" value="AJOX_UAT_01"></div>
+              <div class="f wide"><label>TargetCompID</label><input type="text" value="OFSG_UAT"></div>
+              <div class="f wide"><label>SenderSubID / OnBehalfOf <small>optional</small></label><input type="text" value="" placeholder="none"></div>
+              <div class="f wide"><label>Username</label><input type="text" value="AJOX_UAT_01"></div>
+              <div class="f wide"><label>Password <small>stored in .env as FIX_ORIENT_SGX_UAT</small></label><input type="password" value="********"></div>
+              <div class="f wide"><label>Account <small>tag 1, stamped on every order</small></label><input type="text" value="OFSG-88214"></div>
+              <div class="f"><label>Heartbeat <small>seconds</small></label><input type="number" value="30"></div>
+              <div class="f"><label>Reset sequence on logon</label><input class="chk" type="checkbox" checked></div>
+              <div class="f"><label>TLS</label><input class="chk" type="checkbox" checked></div>
+              <div class="f wide"><label>Data dictionary</label><input type="text" value="dict/OFSG-FIX44.xml"></div>
+              <div class="hint">Nothing secret is written to config, returned by an API, printed in a
+              log line or put in a toast. The config holds the <b>name</b> of the .env key, never the
+              value.</div>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button class="btn">Connect</button>
+                <button class="btn">Test</button>
+                <button class="btn">Diagnose</button>
+                <span style="margin-left:auto"><button class="btn pri">Save venue</button></span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="card">
+              <h5>Diagnose <span class="note">13:41:52</span></h5>
+              <div class="diag">
+<span class="ok">OK  </span> TCP  uat-fix.orientfutures.example:9823 &mdash; 14 ms, TLS 1.3
+<span class="ok">OK  </span> LOGON sent, accepted 13:41:52.118
+<span class="ok">OK  </span> Sequence  out 812  in 1904  &mdash; no gap
+<span class="ok">OK  </span> Heartbeat 30s, last 3.1s ago
+<span class="ok">OK  </span> Clock     venue 13:41:52.9  us +0.4s  (tolerance 2s)
+<span class="ok">OK  </span> Dictionary dict/OFSG-FIX44.xml &mdash; 214 msgs, 38 custom tags
+<span class="ok">OK  </span> Account   OFSG-88214 accepted
+<span class="dim">---- contracts ----------------------------------------</span>
+<span class="ok">OK  </span> FEFV6-FEFX6   tick 0.01  value 1.00  mult 100  USD  OPEN
+<span class="ok">OK  </span> FEFX6-FEFZ6   tick 0.01  value 1.00  mult 100  USD  OPEN
+<span class="ok">OK  </span> CNV6-CNX6     tick 2.50  value 2.50  mult 1    USD  OPEN
+<span class="bad">FAIL</span> TFX6-TFZ6     venue says tick <span class="bad">0.10</span>, config says 0.05
+<span class="dim">     &rarr; every money figure on this window runs through it.</span>
+<span class="dim">     [ Use the venue's 0.10 ]  [ Keep mine ]</span>
+<span class="bad">FAIL</span> BRNZ6-BRNF7   no market data for 41s &mdash; ICE session is on
+<span class="dim">     a separate connection; check the MD host.</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <h5>Orient SGX PROD <span class="note">saved, not connected</span></h5>
+              <div class="cb">
+                <div class="hint">A second venue with its own credentials. <b>UAT and PROD are never
+                the same row.</b> Connecting this one turns every badge on the screen red and asks
+                once.</div>
+                <div style="display:flex;gap:6px"><button class="btn">Edit</button><button class="btn">Connect</button><button class="btn danger">Delete</button></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="padding:0 12px 12px">
+          <div class="card">
+            <h5>Contracts <span class="note">a saved contract gets its window within a few seconds</span></h5>
+            <div style="overflow-x:auto">
+            <table class="grid">
+              <thead><tr>
+                <th>Name</th><th>Symbol</th><th>Venue</th><th class="r">Tick</th><th class="r">Tick value</th>
+                <th class="r">Mult</th><th>Ccy</th><th class="r">Qty</th><th>Hours</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody>
+                <tr><td class="txt">Iron ore Oct/Nov</td><td>FEFV6-FEFX6</td><td class="txt">SGX-UAT</td><td class="r">0.01</td><td class="r">1.00</td><td class="r">100</td><td>USD</td><td class="r">5</td><td>07:25&ndash;19:00</td><td><span class="tag t-fill">OPEN</span></td><td class="r"><button class="btn sm">Edit</button></td></tr>
+                <tr><td class="txt">Iron ore Nov/Dec</td><td>FEFX6-FEFZ6</td><td class="txt">SGX-UAT</td><td class="r">0.01</td><td class="r">1.00</td><td class="r">100</td><td>USD</td><td class="r">4</td><td>07:25&ndash;19:00</td><td><span class="tag t-fill">OPEN</span></td><td class="r"><button class="btn sm">Edit</button></td></tr>
+                <tr><td class="txt">A50 Oct/Nov</td><td>CNV6-CNX6</td><td class="txt">SGX-UAT</td><td class="r">2.50</td><td class="r">2.50</td><td class="r">1</td><td>USD</td><td class="r">3</td><td>09:00&ndash;16:30</td><td><span class="tag t-fill">OPEN</span></td><td class="r"><button class="btn sm">Edit</button></td></tr>
+                <tr><td class="txt">TSR20 Nov/Dec</td><td>TFX6-TFZ6</td><td class="txt">SGX-UAT</td><td class="r">0.05</td><td class="r">1.00</td><td class="r">20</td><td>USD</td><td class="r">3</td><td>07:55&ndash;18:00</td><td><span class="tag t-rej">TICK MISMATCH</span></td><td class="r"><button class="btn sm">Fix</button></td></tr>
+                <tr><td class="txt">Brent Dec/Jan</td><td>BRNZ6-BRNF7</td><td class="txt">ICE-UAT</td><td class="r">0.01</td><td class="r">10.00</td><td class="r">1000</td><td>USD</td><td class="r">2</td><td>01:00&ndash;23:00</td><td><span class="tag t-cxl">NO DATA</span></td><td class="r"><button class="btn sm">Edit</button></td></tr>
+                <tr><td class="txt">WTI Dec/Jan</td><td>CLZ6-CLF7</td><td class="txt">CME-UAT</td><td class="r">0.01</td><td class="r">10.00</td><td class="r">1000</td><td>USD</td><td class="r">2</td><td>23:00&ndash;22:00</td><td><span class="tag t-fill">OPEN</span></td><td class="r"><button class="btn sm">Edit</button></td></tr>
+              </tbody>
+            </table>
+            </div>
+            <div class="cb" style="border-top:1px solid #e4e4e4">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <button class="btn pri">New contract</button>
+                <button class="btn">Find symbols at the venue</button>
+                <button class="btn">Read specifications from the venue</button>
+                <span class="hint" style="margin-left:auto">A contract with an open position cannot be deleted &mdash; the refusal names the position.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="taskbar">
+        <button class="tk">+</button><button class="tk">Back to the desk</button>
+        <span class="right"><span class="link part">SGX ok &middot; ICE stale</span><button class="tk">Settings</button><button class="tk act">Exchanges</button><button class="kill">KILL ALL</button></span>
+      </div>
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>The credential fields are FIX session fields</b> &mdash; comp ids, sequence reset,
+        dictionary &mdash; because that is what connecting here means.</li>
+        <li><b>Environment is a radio, not a checkbox</b>, and PROD is a separate venue row with its
+        own credentials.</li>
+        <li><b>Diagnose speaks the venue's words</b> and every failure carries the step that fixes
+        it, offered as a button rather than applied silently.</li>
+        <li><b>A tick mismatch is a FAIL, not a warning</b> &mdash; every money figure runs through it.</li>
+        <li><b>Contracts table doubles as the health list</b>: OPEN, NO DATA, TICK MISMATCH.</li>
+        <li class="ask"><b>Symbol identification.</b> I have assumed one <span class="opt">Symbol (55)</span>
+        names the spread. If Orient uses SecurityID + SecurityExchange, or a multi-leg definition,
+        this table grows two columns &mdash; do you know which?</li>
+        <li class="ask"><b>Separate market-data session?</b> The field is there and blank means "same
+        session". Worth knowing before the wiring phase.</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ 5. BLOTTER ============================ -->
+<section data-screen="blot" hidden>
+  <div class="caption">
+    <h2>Blotter &amp; events</h2>
+    <p>Two windows on the desk rather than a separate page, so they sit beside the contracts they
+    describe. Every notification that raised a toast is here permanently.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="10.9" width="11" height="2.2" fill="#1c1c1c"></rect>
+          <circle cx="7" cy="12" r="3.4" fill="#1f7ac2"></circle>
+          <circle cx="17" cy="12" r="3.4" fill="#b83232"></circle>
+        </svg>
+        <span class="nm">NEXUS FIX</span><span class="sub">spread terminal</span><span class="env">UAT</span>
+      </div>
+      <div class="desk" style="grid-template-columns:1fr;">
+
+        <section class="win" style="max-width:none">
+          <div class="tbar">
+            <span class="swatch" style="background:#1c1c1c"></span>
+            <span class="t">Blotter</span>
+            <span class="venue">today &middot; 14 orders &middot; 11 fills</span>
+            <span class="btns"><button class="wb">&times;</button></span>
+          </div>
+          <div class="wbody" style="padding:0">
+            <div style="overflow-x:auto">
+            <table class="grid">
+              <thead><tr>
+                <th>Time</th><th>Contract</th><th>Side</th><th class="r">Qty</th><th class="r">Price</th>
+                <th>Type</th><th>State</th><th class="r">Filled</th><th class="r">Avg</th><th class="r">Fees</th>
+                <th>ClOrdID</th><th>Venue id</th><th>Why</th>
+              </tr></thead>
+              <tbody>
+                <tr><td>13:41:07</td><td class="txt">Iron ore Oct/Nov</td><td><span class="tag t-sell">SELL</span></td><td class="r">5</td><td class="r">0.6930</td><td>LIMIT</td><td><span class="tag t-fill">FILLED</span></td><td class="r">5</td><td class="r">0.6930</td><td class="r">9.50</td><td>FT-7f3a-0041</td><td>OFSG-338211</td><td class="txt">entry &middot; z +2.14</td></tr>
+                <tr><td>13:40:36</td><td class="txt">Iron ore Oct/Nov</td><td><span class="tag t-sell">SELL</span></td><td class="r">5</td><td class="r">0.6940</td><td>LIMIT</td><td><span class="tag t-cxl">CANCELLED</span></td><td class="r">0</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td>FT-7f3a-0040</td><td>OFSG-338207</td><td class="txt">unfilled 30s &middot; re-priced 1 tick</td></tr>
+                <tr><td>13:12:44</td><td class="txt">Iron ore Nov/Dec</td><td><span class="tag t-buy">BUY</span></td><td class="r">4</td><td class="r">MKT</td><td>MARKET</td><td><span class="tag t-fill">FILLED</span></td><td class="r">4</td><td class="r">0.2980</td><td class="r">7.60</td><td>FT-7f3a-0039</td><td>OFSG-338104</td><td class="txt">target reached &middot; +$130 net</td></tr>
+                <tr><td>13:02:19</td><td class="txt">TSR20 Nov/Dec</td><td><span class="tag t-sell">SELL</span></td><td class="r">3</td><td class="r">&minus;21.80</td><td>LIMIT</td><td><span class="tag t-rej">REJECTED</span></td><td class="r">0</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td>FT-7f3a-0038</td><td>&mdash;</td><td class="txt">tag 58: "Instrument not open for trading"</td></tr>
+                <tr><td>11:51:02</td><td class="txt">Iron ore Nov/Dec</td><td><span class="tag t-sell">SELL</span></td><td class="r">4</td><td class="r">0.3620</td><td>LIMIT</td><td><span class="tag t-fill">FILLED</span></td><td class="r">4</td><td class="r">0.3620</td><td class="r">7.60</td><td>FT-7f3a-0037</td><td>OFSG-337880</td><td class="txt">entry &middot; z +2.05</td></tr>
+                <tr><td>10:18:55</td><td class="txt">WTI Dec/Jan</td><td><span class="tag t-buy">BUY</span></td><td class="r">2</td><td class="r">0.4900</td><td>LIMIT</td><td><span class="tag t-work">WORKING</span></td><td class="r">1</td><td class="r">0.4900</td><td class="r">1.90</td><td>FT-7f3a-0036</td><td>OFSG-337612</td><td class="txt">partial 1/2</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+          <div class="wfoot"><span>Fees today $26.60</span><span class="grow">Realised +$412 &middot; open +$46</span><button class="btn sm">Export CSV</button></div>
+        </section>
+
+        <section class="win" style="max-width:none">
+          <div class="tbar">
+            <span class="swatch" style="background:#5c6066"></span>
+            <span class="t">Events</span>
+            <span class="venue">all contracts</span>
+            <span class="btns"><button class="wb">&times;</button></span>
+          </div>
+          <div class="wbody" style="padding:0">
+            <table class="grid">
+              <thead><tr><th>Time</th><th>Contract</th><th>Kind</th><th>What happened</th></tr></thead>
+              <tbody>
+                <tr><td>13:41:07</td><td class="txt">Iron ore Oct/Nov</td><td><span class="tag t-fill">OPEN</span></td><td class="txt">SHORT 5 @ 0.6930 &middot; z +2.14 &middot; edge 2.4&times; &middot; H 0.38 &middot; target 0.6465</td></tr>
+                <tr><td>13:38:02</td><td class="txt">&mdash;</td><td><span class="tag t-cxl">CONFIG</span></td><td class="txt">Settings saved &middot; TSR20 minimum edge 1.2 &rarr; 1.5</td></tr>
+                <tr><td>13:21:38</td><td class="txt">Brent Dec/Jan</td><td><span class="tag t-rej">GUARD</span></td><td class="txt">Quote stale 15s &mdash; entries withheld. Closes are unaffected.</td></tr>
+                <tr><td>13:12:44</td><td class="txt">Iron ore Nov/Dec</td><td><span class="tag t-fill">CLOSED</span></td><td class="txt">Covered 4 @ 0.2980 &middot; +$130 net of $7.60 &middot; held 1h 22m</td></tr>
+                <tr><td>13:04:22</td><td class="txt">Iron ore Nov/Dec</td><td><span class="tag t-rej">UNCLAIMED</span></td><td class="txt">2 lots short at the venue that recovery cannot explain &mdash; nothing closed</td></tr>
+                <tr><td>13:02:19</td><td class="txt">TSR20 Nov/Dec</td><td><span class="tag t-rej">REJECT</span></td><td class="txt">tag 58: "Instrument not open for trading" &middot; tag 103=2</td></tr>
+                <tr><td>12:58:10</td><td class="txt">A50 Oct/Nov</td><td><span class="tag t-work">WARMING</span></td><td class="txt">Window cleared &mdash; lookback changed 300 &rarr; 400</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="wfoot"><span class="grow">Filter: all contracts &middot; all kinds</span><button class="btn sm">Export CSV</button></div>
+        </section>
+      </div>
+      <div class="taskbar">
+        <button class="tk">+</button><button class="tk">Iron ore Oct/Nov</button><button class="tk act">Blotter</button><button class="tk">Events</button>
+        <span class="right"><span class="link ok">SGX ok</span><button class="tk">Settings</button><button class="kill">KILL ALL</button></span>
+      </div>
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>Why a thing happened is a column</b>, not a log file: "entry &middot; z +2.14",
+        "target reached", "unfilled 30s".</li>
+        <li><b>A reject carries the venue's own tag 58 text</b>, verbatim, never "check the log".</li>
+        <li><b>An event row records the state at the moment of the decision</b> &mdash; z, edge, H and
+        the target &mdash; so a trade can be argued with afterwards.</li>
+        <li><b>Both export CSV</b>, with empty cells rather than zeros where nothing was measured.</li>
+        <li class="ask"><b>Positions window</b> &mdash; I have not drawn it. Is a per-contract position
+        line plus this blotter enough, or do you want a separate account view with margin?</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ 6. ANALYSIS ============================ -->
+<section data-screen="anly" hidden>
+  <div class="caption">
+    <h2>Analysis &mdash; per contract, and across all of them</h2>
+    <p>The feedback loop from Stat-Arb's Analysis tab, but scoped to one contract at a time, because
+    with eight contracts running a single blended win rate tells you nothing about which one to turn
+    off. It opens as its own window, so it can sit beside the contract it describes.</p>
+  </div>
+  <div class="screenwrap">
+    <div class="frame"><div class="inner term">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="10.9" width="11" height="2.2" fill="#1c1c1c"></rect>
+          <circle cx="7" cy="12" r="3.4" fill="#1f7ac2"></circle>
+          <circle cx="17" cy="12" r="3.4" fill="#b83232"></circle>
+        </svg>
+        <span class="nm">NEXUS FIX</span><span class="sub">spread terminal</span><span class="env">UAT</span>
+      </div>
+      <div class="desk" style="grid-template-columns:1fr;">
+
+        <section class="win" style="max-width:none">
+          <div class="tbar">
+            <span class="swatch" style="background:#3f8b52"></span>
+            <span class="t">Analysis</span>
+            <span class="venue">closed trades only &middot; live orders excluded</span>
+            <span class="btns"><button class="wb">&#9881;</button><button class="wb">&times;</button></span>
+          </div>
+
+          <div class="subtabs">
+            <button class="on">Iron ore Oct/Nov</button>
+            <button>All contracts</button>
+            <span class="right">
+              <select><option>Since inception</option><option>Last 30 days</option><option>Last 7 days</option><option>Today</option></select>
+              <select><option>Live only</option><option>Live + simulated</option><option>Simulated only</option></select>
+              <button class="btn sm">Export CSV</button>
+            </span>
+          </div>
+
+          <div class="wbody" style="padding:8px;gap:8px">
+
+            <div class="tiles">
+              <div class="tile"><div class="k">Trades</div><div class="v">34</div><div class="s">23 won / 11 lost</div></div>
+              <div class="tile"><div class="k">Win rate</div><div class="v">67.6%</div><div class="s">of 34 closed</div></div>
+              <div class="tile"><div class="k">Net P&amp;L</div><div class="v up">+$4,182</div><div class="s">after $516 costs</div></div>
+              <div class="tile"><div class="k">Avg / trade</div><div class="v up">+$123</div><div class="s">win +$286 &middot; loss &minus;$218</div></div>
+              <div class="tile"><div class="k">Expectancy</div><div class="v up">+$122</div><div class="s">0.676&times;286 &minus; 0.324&times;218</div></div>
+              <div class="tile"><div class="k">On margin</div><div class="v up">+8.4%</div><div class="s">$49,800 locked, avg</div></div>
+              <div class="tile"><div class="k">Cost drag</div><div class="v">11.0%</div><div class="s">$516 of $4,698 gross</div></div>
+              <div class="tile"><div class="k">Avg hold</div><div class="v">47m</div><div class="s">half-life 18.4 &rarr; 2.6&times;</div></div>
+              <div class="tile"><div class="k">Worst run</div><div class="v dn">&minus;$612</div><div class="s">3 losses, 21 Aug</div></div>
+            </div>
+
+            <div class="cols" style="padding:0;grid-template-columns:minmax(300px,1.25fr) minmax(280px,1fr);gap:8px">
+
+              <div class="card">
+                <h5>Standard-deviation touches <span class="note">what happened after each one</span></h5>
+                <div style="overflow-x:auto">
+                <table class="grid">
+                  <thead><tr>
+                    <th>Level</th><th>Touches</th><th style="width:90px"></th>
+                    <th class="r" title="Reverted to the mean inside 2x the half-life">Reverted</th>
+                    <th class="r" title="Median time from the touch to the mean">Median</th>
+                    <th class="r" title="Median further adverse move before it turned, in sigma">Adverse</th>
+                    <th class="r">Traded</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td><span class="tag t-sell">+3 SD</span></td><td class="r">6</td><td><div class="cbar"><i class="neg" style="width:10%"></i><b>6</b></div></td><td class="r">83%</td><td class="r">18m</td><td class="r">0.4&sigma;</td><td class="r">0</td></tr>
+                    <tr><td><span class="tag t-sell">+2 SD</span></td><td class="r">22</td><td><div class="cbar"><i class="neg" style="width:36%"></i><b>22</b></div></td><td class="r">86%</td><td class="r">24m</td><td class="r">0.5&sigma;</td><td class="r">11</td></tr>
+                    <tr><td><span class="tag t-cxl">+1 SD</span></td><td class="r">58</td><td><div class="cbar"><i class="neg" style="width:95%"></i><b>58</b></div></td><td class="r">57%</td><td class="r">44m</td><td class="r">1.2&sigma;</td><td class="r">&mdash;</td></tr>
+                    <tr><td><span class="tag t-cxl">&minus;1 SD</span></td><td class="r">61</td><td><div class="cbar"><i class="pos" style="width:100%"></i><b>61</b></div></td><td class="r">61%</td><td class="r">41m</td><td class="r">1.1&sigma;</td><td class="r">&mdash;</td></tr>
+                    <tr><td><span class="tag t-buy">&minus;2 SD</span></td><td class="r">19</td><td><div class="cbar"><i class="pos" style="width:31%"></i><b>19</b></div></td><td class="r">84%</td><td class="r">26m</td><td class="r">0.6&sigma;</td><td class="r">9</td></tr>
+                    <tr><td><span class="tag t-buy">&minus;3 SD</span></td><td class="r">4</td><td><div class="cbar"><i class="pos" style="width:7%"></i><b>4</b></div></td><td class="r">100%</td><td class="r">12m</td><td class="r">0.2&sigma;</td><td class="r">0</td></tr>
+                  </tbody>
+                </table>
+                </div>
+                <div class="cb">
+                  <div class="finding"><b>&plusmn;2 SD is the right threshold on this contract.</b>
+                  86% and 84% of those touches reverted, against 57&ndash;61% at &plusmn;1 SD &mdash; and
+                  the &plusmn;1 touches that did revert took nearly twice as long and went 1.1&sigma;
+                  further against you first. The 10 touches at &plusmn;3 SD were all past the stop and
+                  never traded.</div>
+                  <div class="hint">A touch is counted once per crossing, not once per tick. Reverted
+                  means the mid reached the rolling mean; a touch still open at the window's end is
+                  <b>unresolved</b>, not a failure &mdash; 3 here, excluded from the percentage.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="card">
+                  <h5>How they ended</h5>
+                  <table class="grid">
+                    <thead><tr><th>Reason</th><th class="r">Count</th><th style="width:70px"></th><th class="r">Net</th></tr></thead>
+                    <tbody>
+                      <tr><td class="txt">Profit target</td><td class="r">26</td><td><div class="cbar"><i class="pos" style="width:100%"></i></div></td><td class="r">+$5,206</td></tr>
+                      <tr><td class="txt">Stop-loss (z)</td><td class="r">4</td><td><div class="cbar"><i class="neg" style="width:16%"></i></div></td><td class="r">&minus;$872</td></tr>
+                      <tr><td class="txt">Session flat</td><td class="r">2</td><td><div class="cbar"><i class="neg" style="width:8%"></i></div></td><td class="r">&minus;$104</td></tr>
+                      <tr><td class="txt">Time stop</td><td class="r">1</td><td><div class="cbar"><i class="neg" style="width:4%"></i></div></td><td class="r">&minus;$36</td></tr>
+                      <tr><td class="txt">CLOSE NOW</td><td class="r">1</td><td><div class="cbar"><i class="neg" style="width:4%"></i></div></td><td class="r">&minus;$12</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="card">
+                  <h5>Costs <span class="note">budget against measurement</span></h5>
+                  <table class="grid">
+                    <thead><tr><th>Item</th><th class="r">Budgeted</th><th class="r">Actual</th><th class="r">Diff</th></tr></thead>
+                    <tbody>
+                      <tr><td class="txt">Commission</td><td class="r">$326</td><td class="r">$326</td><td class="r">&mdash;</td></tr>
+                      <tr><td class="txt">Exchange fee</td><td class="r">$149</td><td class="r">$149</td><td class="r">&mdash;</td></tr>
+                      <tr><td class="txt">Clearing</td><td class="r">$41</td><td class="r">$41</td><td class="r">&mdash;</td></tr>
+                      <tr><td class="txt">Slippage</td><td class="r">$340</td><td class="r">$211</td><td class="r" style="color:#245c33">&minus;$129</td></tr>
+                      <tr><td class="txt"><b>Round trip</b></td><td class="r">$856</td><td class="r">$727</td><td class="r">&minus;$129</td></tr>
+                      <tr><td class="txt">Per contract</td><td class="r">0.50 tk</td><td class="r">0.31 tk</td><td class="r">&minus;0.19</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="cb">
+                    <div class="finding warn"><b>The slippage budget is 0.19 ticks generous.</b>
+                    The edge filter charges 0.50 ticks a side and the fills cost 0.31 &mdash; so it is
+                    refusing entries it would have paid for. Lower the budget on this contract and
+                    the same 1.5&times; multiple lets more through.
+                    <button class="btn sm" style="margin-top:5px">Set it to 0.31</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h5>Trade journal <span class="note">Iron ore Oct/Nov &middot; 34 closed, newest first</span></h5>
+              <div style="overflow-x:auto">
+              <table class="grid">
+                <thead><tr>
+                  <th>Entry</th><th>Exit</th><th>Side</th><th class="r">Qty</th>
+                  <th class="r">Z in</th><th class="r">Z out</th>
+                  <th class="r">Price in</th><th class="r">Price out</th>
+                  <th class="r">Gross</th><th class="r">Costs</th><th class="r">Net</th>
+                  <th class="r" title="Return on the margin this position actually locked up">On margin</th>
+                  <th class="r">Held</th><th>Ended</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td>07 Sep 13:41</td><td>07 Sep 14:58</td><td><span class="tag t-sell">SHORT</span></td><td class="r">5</td><td class="r">+2.14</td><td class="r">+0.36</td><td class="r">0.6930</td><td class="r">0.6465</td><td class="r">+$232</td><td class="r">$19</td><td class="r" style="color:#245c33">+$213</td><td class="r">+2.9%</td><td class="r">1h 17m</td><td class="txt">target</td></tr>
+                  <tr><td>07 Sep 11:51</td><td>07 Sep 13:12</td><td><span class="tag t-sell">SHORT</span></td><td class="r">4</td><td class="r">+2.05</td><td class="r">+0.41</td><td class="r">0.3620</td><td class="r">0.2980</td><td class="r">+$256</td><td class="r">$15</td><td class="r" style="color:#245c33">+$241</td><td class="r">+3.1%</td><td class="r">1h 22m</td><td class="txt">target</td></tr>
+                  <tr><td>06 Sep 15:02</td><td>06 Sep 15:44</td><td><span class="tag t-buy">LONG</span></td><td class="r">5</td><td class="r">&minus;2.31</td><td class="r">&minus;4.02</td><td class="r">0.2410</td><td class="r">0.1980</td><td class="r">&minus;$215</td><td class="r">$19</td><td class="r" style="color:#7a2020">&minus;$234</td><td class="r">&minus;3.2%</td><td class="r">42m</td><td class="txt">stop-loss</td></tr>
+                  <tr><td>06 Sep 09:18</td><td>06 Sep 10:31</td><td><span class="tag t-buy">LONG</span></td><td class="r">5</td><td class="r">&minus;2.08</td><td class="r">&minus;0.29</td><td class="r">0.2860</td><td class="r">0.3310</td><td class="r">+$225</td><td class="r">$19</td><td class="r" style="color:#245c33">+$206</td><td class="r">+2.8%</td><td class="r">1h 13m</td><td class="txt">target</td></tr>
+                  <tr><td>05 Sep 16:44</td><td>05 Sep 17:10</td><td><span class="tag t-sell">SHORT</span></td><td class="r">3</td><td class="r">+2.02</td><td class="r">+1.71</td><td class="r">0.5510</td><td class="r">0.5480</td><td class="r">+$9</td><td class="r">$11</td><td class="r" style="color:#7a2020">&minus;$2</td><td class="r">&minus;0.0%</td><td class="r">26m</td><td class="txt">session flat</td></tr>
+                  <tr><td>05 Sep 10:07</td><td>05 Sep 11:02</td><td><span class="tag t-sell">SHORT</span></td><td class="r">5</td><td class="r">+2.44</td><td class="r">+0.33</td><td class="r">0.6120</td><td class="r">0.5610</td><td class="r">+$255</td><td class="r">$19</td><td class="r" style="color:#245c33">+$236</td><td class="r">+3.2%</td><td class="r">55m</td><td class="txt">target</td></tr>
+                </tbody>
+              </table>
+              </div>
+              <div class="cb"><div class="hint">Every column is what the system <b>recorded at the
+              time</b>, not recomputed now: the z at entry is the z the decision was made on. Where
+              something was never measured the cell is empty, never zero.</div></div>
+            </div>
+
+          </div>
+          <div class="wfoot"><span>Iron ore Oct/Nov</span><span class="grow">34 closed &middot; 1 open &middot; 3 touches unresolved</span><span>updated 13:41:52</span></div>
+        </section>
+
+        <section class="win" style="max-width:none">
+          <div class="tbar">
+            <span class="swatch" style="background:#1c1c1c"></span>
+            <span class="t">Analysis &mdash; all contracts</span>
+            <span class="venue">the second sub-tab, shown here side by side</span>
+            <span class="btns"><button class="wb">&times;</button></span>
+          </div>
+          <div class="wbody" style="padding:0">
+            <div style="overflow-x:auto">
+            <table class="grid">
+              <thead><tr>
+                <th>Contract</th><th class="r">Trades</th><th class="r">Win</th><th style="width:80px"></th>
+                <th class="r">Net</th><th class="r">Avg</th><th class="r">On margin</th>
+                <th class="r">Cost drag</th><th class="r">Avg hold</th><th class="r">Best SD</th><th>Verdict</th>
+              </tr></thead>
+              <tbody>
+                <tr><td class="txt">Iron ore Oct/Nov</td><td class="r">34</td><td class="r">67.6%</td><td><div class="cbar"><i class="pos" style="width:100%"></i></div></td><td class="r" style="color:#245c33">+$4,182</td><td class="r">+$123</td><td class="r">+8.4%</td><td class="r">11.0%</td><td class="r">47m</td><td class="r">&plusmn;2.0</td><td class="txt">earning</td></tr>
+                <tr><td class="txt">Iron ore Nov/Dec</td><td class="r">28</td><td class="r">64.3%</td><td><div class="cbar"><i class="pos" style="width:71%"></i></div></td><td class="r" style="color:#245c33">+$2,960</td><td class="r">+$106</td><td class="r">+6.1%</td><td class="r">13.4%</td><td class="r">62m</td><td class="r">&plusmn;2.0</td><td class="txt">earning</td></tr>
+                <tr><td class="txt">WTI Dec/Jan</td><td class="r">19</td><td class="r">57.9%</td><td><div class="cbar"><i class="pos" style="width:22%"></i></div></td><td class="r" style="color:#245c33">+$910</td><td class="r">+$48</td><td class="r">+2.2%</td><td class="r">29.6%</td><td class="r">1h 51m</td><td class="r">&plusmn;2.5</td><td class="txt">costs eat it</td></tr>
+                <tr><td class="txt">A50 Oct/Nov</td><td class="r">11</td><td class="r">54.5%</td><td><div class="cbar"><i class="neg" style="width:5%"></i></div></td><td class="r" style="color:#7a2020">&minus;$204</td><td class="r">&minus;$19</td><td class="r">&minus;0.4%</td><td class="r">41.2%</td><td class="r">2h 38m</td><td class="r">&plusmn;2.5</td><td class="txt">too few to judge</td></tr>
+                <tr><td class="txt">TSR20 Nov/Dec</td><td class="r">6</td><td class="r">33.3%</td><td><div class="cbar"><i class="neg" style="width:18%"></i></div></td><td class="r" style="color:#7a2020">&minus;$742</td><td class="r">&minus;$124</td><td class="r">&minus;2.8%</td><td class="r">58.9%</td><td class="r">3h 12m</td><td class="r">&plusmn;3.0</td><td class="txt">losing</td></tr>
+                <tr><td class="txt">Brent Dec/Jan</td><td class="r">0</td><td class="r">&mdash;</td><td><div class="cbar"></div></td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">&mdash;</td><td class="txt">no data yet</td></tr>
+                <tr><td class="txt"><b>All</b></td><td class="r">98</td><td class="r">61.2%</td><td></td><td class="r" style="color:#245c33">+$7,106</td><td class="r">+$73</td><td class="r">+4.9%</td><td class="r">16.8%</td><td class="r">1h 09m</td><td class="r">&mdash;</td><td class="txt">&mdash;</td></tr>
+              </tbody>
+            </table>
+            </div>
+            <div class="cb" style="border-top:1px solid #e4e4e4">
+              <div class="finding warn"><b>TSR20 Nov/Dec is losing and 59% of its gross goes on
+              costs.</b> Six trades is thin, but its edge filter has been passing entries whose
+              sigma barely covers the round trip. Its own Analysis tab shows &plusmn;3 SD reverting
+              where &plusmn;2 does not &mdash; raise its entry threshold, or turn it off.</div>
+              <div class="hint" style="margin-top:6px">A contract with fewer than 10 closed trades
+              is marked <b>too few to judge</b> and is never given a verdict on win rate alone. No
+              figure here is blended across contracts except the last row, which is labelled.</div>
+            </div>
+          </div>
+          <div class="wfoot"><span class="grow">6 contracts &middot; 98 closed trades &middot; since inception</span><button class="btn sm">Export CSV</button></div>
+        </section>
+
+      </div>
+      <div class="taskbar">
+        <button class="tk">+</button><button class="tk">Iron ore Oct/Nov</button>
+        <button class="tk act">Analysis</button><button class="tk">Blotter</button>
+        <span class="right"><span class="link ok">SGX ok</span><button class="tk">Settings</button><button class="kill">KILL ALL</button></span>
+      </div>
+    </div></div>
+
+    <aside class="notes">
+      <h3>What to look at</h3>
+      <ol>
+        <li><b>One contract at a time, by default.</b> A blended win rate across eight contracts
+        tells you nothing about which one to turn off &mdash; the sub-tab switches, and
+        <b>All contracts</b> is the comparison.</li>
+        <li><b>The SD touch table answers a question</b> rather than counting events: of the touches
+        at this level, how many reverted, how long they took, and how far they went against you
+        first. That is what says whether &plusmn;2.00 is right <i>for this contract</i>.</li>
+        <li><b>No chart library.</b> Counts carry an in-cell bar so they compare at a glance and
+        stay numbers. The original tab used a Chart.js bar &mdash; this is the same information
+        without the dependency.</li>
+        <li><b>A touch still open is unresolved, not a failure</b>, and is excluded from the
+        percentage rather than counted as a miss.</li>
+        <li><b>Costs are budget against measurement</b>, and the finding is actionable: the slippage
+        budget is 0.19 ticks generous, so the edge filter is refusing entries it would have paid
+        for. One button applies it.</li>
+        <li><b>On margin</b> is carried per trade &mdash; the return on what the position actually
+        locked up, which is the same base the profit target uses.</li>
+        <li><b>Under 10 closed trades gets no verdict.</b> Six losing trades is not evidence, and a
+        page that says so is worth more than one that ranks noise.</li>
+        <li class="ask"><b>Scope of the SD study</b> &mdash; touches are recorded whether or not the
+        algo was on, so the table covers hours you were not trading. Right, or should it only count
+        touches while the contract was armed?</li>
+        <li class="ask"><b>A threshold sweep</b> &mdash; "what would 1.5 / 2.0 / 2.5 / 3.0 have done
+        on this contract" is computable from the same series. Worth a panel here, or is that the
+        backtest, later?</li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<div class="legend">
+  <div><i style="background:#1f7ac2"></i> bid / buy / long</div>
+  <div><i style="background:#b83232"></i> ask / sell / short</div>
+  <div><i style="background:#3f8b52"></i> filled, in profit, healthy</div>
+  <div><i style="background:#a8730a"></i> warming, withheld, UAT</div>
+  <div><i style="background:#e2e2e2"></i> idle, unmeasured, em dash</div>
+</div>
+
+<div class="qbox">
+  <h2>The things I need from you</h2>
+  <p>Everything above is drawn to a default I picked. These are the ones where a different answer
+  changes what gets built, roughly in the order they bite.</p>
+  <ol>
+    <li><b>The profit target is a percentage of what?</b>
+      <span class="opt">initial margin / notional / sigma at entry</span> &mdash; margin is what the
+      trade costs to hold and is what MT5-Trader uses, but it needs Orient to report margin per
+      contract. Notional always works. Sigma expresses the target in the move being caught.</li>
+    <li><b>Does the algo rest limit entries, or only cross?</b> Limits save the spread but bring
+      re-pricing, timeouts and queue handling. Market/IOC only is materially simpler and always fills.</li>
+    <li><b>Should this screen be able to close a position at all?</b> I have kept CLOSE NOW and
+      KILL ALL as safety. If even that belongs in TT, the screen sends nothing but the algo's own
+      orders.</li>
+    <li><b>How many contracts on screen at once, typically?</b> I have sized windows so eight fit
+      1920&times;1080. Sixteen means smaller figures; four means I can make them much bigger.</li>
+    <li><b>Keep the z-strip?</b> The 15px rule under the statistics. It is the only non-numeric
+      element on a window.</li>
+    <li><b>How is a spread contract identified at Orient?</b> Symbol (55) alone, or SecurityID +
+      SecurityExchange, or a multi-leg security definition? It changes the contract table and the
+      security-definition request.</li>
+    <li><b>Do SD touches count while the algo is off?</b> They are recorded from the price series
+      either way, so the study covers hours you were not trading. That is the honest sample of the
+      contract's behaviour &mdash; but if you only want to judge the hours you were armed, say so
+      and it becomes a filter.</li>
+    <li><b>A threshold sweep on the Analysis tab</b> &mdash; what 1.5 / 2.0 / 2.5 / 3.0 would have
+      done on this contract's own recorded series. Computable from what we already store. Worth a
+      panel now, or leave it to the backtest later?</li>
+    <li><b>Is market data a separate FIX session?</b> The field is drawn; knowing now saves a
+      refactor at wiring time.</li>
+  </ol>
+</div>
+
+</div>
+
+<script>
+(function(){
+  var tabs = document.querySelectorAll('nav.tabs button');
+  var screens = document.querySelectorAll('[data-screen]');
+  function show(name){
+    screens.forEach(function(s){ s.hidden = (s.dataset.screen !== name); });
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t.dataset.s === name)); });
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ show(t.dataset.s); }); });
+})();
+</script>

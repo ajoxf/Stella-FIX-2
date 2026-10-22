@@ -1,0 +1,80 @@
+/* The Account tab: the Trading Monitor, on the FIX pages' look. */
+.hidden{display:none!important}
+.acct-banner{padding:10px 14px;border:1px solid #aac4dc;background:#e8f1fa;border-radius:5px;font-size:13px;margin:0 0 14px}
+.acct-banner.bad{background:#fff0f0;border-color:#e9c1c1;color:#a03333}
+.tmon .acct-cards{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;margin:0 0 16px}
+.tmon .acct-card{background:#fff;border:1px solid #d6dee6;padding:10px 12px;min-width:0}
+.tmon .acct-card span{display:block;font-size:11px;color:#687584}
+.tmon .acct-card strong{display:block;font:600 16px Consolas,monospace;margin-top:6px;color:#263f56;overflow-wrap:anywhere}
+.tmon .acct-card strong.up{color:#177349}.tmon .acct-card strong.dn{color:#b03030}
+.tmon .acct-card strong.warn,.tmon .acct-card strong.paper{color:#9a6b00}.tmon .acct-card strong.live{color:#b03030}
+
+.tmon .panel.monitor{padding:0;overflow:hidden}
+.tmon .mon-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:6px 6px 0;background:#dcdcdc;border-bottom:1px solid #aaa}
+.tmon .mon-tabs button{border:1px solid #aaa;border-bottom:none;border-radius:0;background:#ececec;padding:6px 14px;font:600 13px Segoe UI,Arial,sans-serif;color:#222}
+.tmon .mon-tabs button.on{background:#fff;position:relative;top:1px}
+.tmon .mon-tabs sup{color:#b03030;font-size:10px}
+.tmon .mon-pane{padding:0;overflow-x:auto;min-height:220px;background:#fff}
+.tmon .mon-note{padding:8px 12px;font-size:12px;color:#5b6773;background:#f3f3f3;border-top:1px solid #ccc}
+.tmon table.mon{width:100%;border-collapse:collapse;font:12px Consolas,monospace;background:#fff}
+.tmon table.mon th{position:sticky;top:0;background:#e4e4e4;color:#222;font:600 11px Segoe UI,Arial,sans-serif;text-align:left;padding:5px 8px;border-bottom:1px solid #aaa;border-right:1px solid #ccc;white-space:nowrap}
+.tmon table.mon td{padding:4px 8px;border-bottom:1px solid #e6e6e6;white-space:nowrap;vertical-align:top}
+.tmon table.mon .r{text-align:right}
+.tmon table.mon td.wrap{white-space:normal;min-width:160px;max-width:320px;overflow-wrap:anywhere}
+.tmon table.mon tr.detail td{color:#5b6773;font-size:11px;background:#fafbfc;padding-top:2px;border-bottom:1px solid #d0d0d0}
+.tmon table.mon tr.disagrees td{background:#fff6e0}
+.tmon table.mon tr.hedged td{background:#ffe3e3}
+.tmon table.mon tr.foreign td{color:#7b8792}
+.tmon table.mon tr.paperrow td{background:#fbfaf2}
+.tmon table.mon tr.grp td{border-top:1px solid #bbb}
+.tmon table.mon tfoot td{font-weight:700;background:#f2f2f2;border-top:1px solid #aaa}
+.tmon table.mon.timing{margin-bottom:0}
+.tmon table.mon .empty,.tmon .mon-pane>.empty{color:#687584;font-family:Segoe UI,Arial,sans-serif;padding:14px}
+.tmon table.mon button{padding:3px 9px;font-size:11px;margin:0}
+.tmon .up{color:#177349}.tmon .dn{color:#b03030}.tmon .warn{color:#9a6b00}
+.tmon .mono{font-family:Consolas,monospace}
+.tmon .tiny{font-size:10px;color:#74818e}
+.tmon .side{font-weight:700}.tmon .side.BUY{color:#1f5f99}.tmon .side.SELL{color:#b03030}
+.tmon .oc{font-weight:600}.tmon .oc.OPEN{color:#1f5f99}.tmon .oc.CLOSE{color:#7a3d9a}
+.tmon .origin{display:inline-block;font:700 10px Segoe UI,Arial,sans-serif;padding:1px 6px;border:1px solid #bbb;background:#f1f1f1;letter-spacing:.3px}
+.tmon .origin.ALGO{background:#e3efff;border-color:#8fb3e0;color:#1f4f88}
+.tmon .origin.PAPER{background:#fff4d6;border-color:#e0c46e;color:#7a5a00}
+.tmon .origin.MANUAL{background:#efe6f8;border-color:#bfa3d9;color:#5d2e86}
+.tmon .origin.VENUE{background:#ffe3e3;border-color:#e0a0a0;color:#8a1f1f}
+.tmon .mon-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:#f3f3f3;border-bottom:1px solid #ccc}
+.tmon .mon-tools .check{display:flex;gap:5px;align-items:center;font-size:13px}
+.tmon .mon-tools .check input{width:auto}
+.tmon .mon-sum{display:flex;gap:28px;flex-wrap:wrap;padding:6px 10px;font:12px Consolas,monospace;border-bottom:1px solid #ccc;background:#fafafa}
+.tmon .mon-check{margin:10px;padding:8px 12px;font-size:12px;border:1px solid #ccc;background:#f6f6f6}
+.tmon .mon-check.good{border-color:#bddcc7;background:#edf7f0;color:#2b6e42}
+.tmon .mon-check.warn{border-color:#e5d6b3;background:#fff8e4;color:#886313}
+.tmon .mon-check.bad{border-color:#e9c1c1;background:#fff0f0;color:#a03333}
+.tmon .btn-link{display:inline-block;padding:5px 10px;border:1px solid #aaa;background:#fff;color:#222;font-size:12px;text-decoration:none}
+.tmon .danger-btn{background:#b03030!important;color:#fff!important;border-color:#8a1f1f!important}
+#acct-modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+@media(max-width:900px){.tmon .acct-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* On the desk: one row of small cards, the tables at the desk's text size. */
+.tmonwin .tmon .acct-cards{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:4px}
+.tmonwin .tmon .acct-cards .acct-card{padding:3px 6px}
+.tmonwin .tmon .acct-cards .acct-card span{font-size:calc(9px * var(--fs,1))}
+.tmonwin .tmon .acct-cards .acct-card strong{font-size:calc(11px * var(--fs,1));margin-top:1px}
+.tmonwin .tmon .mon-tabs button{padding:3px 10px;font-size:calc(10.5px * var(--fs,1))}
+.tmonwin .tmon .mon-pane{min-height:60px;max-height:calc(300px * var(--fs,1));overflow:auto}
+.tmonwin .tmon table.mon{font-size:calc(10px * var(--fs,1))}
+.tmonwin .tmon table.mon th{font-size:calc(9px * var(--fs,1))}
+.tmonwin .tmon .mon-note{padding:3px 8px;font-size:calc(9.5px * var(--fs,1))}
+
+/* The desk's Trading Monitor in the MT5 monitor's own greys. */
+.tmonwin .tmon .mon-tabs{background:#d4d0c8;border-bottom:1px solid #a0a0a0}
+.tmonwin .tmon .mon-tabs button{background:#e4e1db;border-color:#a0a0a0}
+.tmonwin .tmon .mon-tabs button.on{background:#f5f5f5}
+.tmonwin .tmon .mon-pane{background:#d4d0c8}
+.tmonwin .tmon table.mon{background:#d4d0c8}
+.tmonwin .tmon table.mon th{background:#c8c5be;border-color:#a0a0a0}
+.tmonwin .tmon table.mon td{border-bottom-color:#c4c0b8}
+.tmonwin .tmon table.mon tr.detail td{background:#cdc9c1}
+.tmonwin .tmon .mon-note{background:#ecebe8;border-top-color:#a0a0a0}
+.tmon .pad{padding:6px 10px}
+
+.tmon .mon-check.mon-closealert{font-weight:700;font-size:13px;border-width:2px;border-color:#b03030}

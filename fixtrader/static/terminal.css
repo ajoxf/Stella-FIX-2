@@ -1,0 +1,1043 @@
+/* The screen, in CSS.
+ *
+ * Colours, grid and every load-bearing rule are defined HERE and served from
+ * this process — no CDN, no web font. A blocked CDN has taken a trading UI
+ * down before, and the dialog that reports "could not save" has to work when
+ * the network is what failed.
+ *
+ * The convention is global:  BID = blue   ASK = red   GREEN = filled / up.
+ * A price must not change colour depending on which panel it sits in.
+ */
+
+:root {
+  --desk: #8d97a5;
+  --frame: #cfcfcf;
+  --frame-2: #c4c4c4;
+  --line: #9d9d9d;
+  --line-soft: #b9b9b9;
+  --panel: #f0f0f0;
+  --field: #fbfbfb;
+  --ink: #1c1c1c;
+  --ink-mute: #5c6066;
+  --ink-faint: #84898f;
+
+  --bid: #1f7ac2;
+  --bid-soft: #dceffb;
+  --ask: #b83232;
+  --ask-soft: #f7dcdc;
+  --good: #3f8b52;
+  --good-soft: #dcefe0;
+  --warn: #a8730a;
+  --warn-soft: #f6ecd4;
+
+  --row-h: 17px;
+  --ui: -apple-system, "Segoe UI", Tahoma, "DejaVu Sans", sans-serif;
+  --mono: "Consolas", "DejaVu Sans Mono", "Menlo", monospace;
+}
+
+* { box-sizing: border-box; }
+
+/* The page is a column: the desk, then the taskbar. No fixed number for the
+ * taskbar's height — it takes what it needs and the desk takes the rest, so a
+ * button that grows can never sit over the bottom of a window. */
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--desk);
+  color: var(--ink);
+  font: calc(12px * var(--fs))/1.35 var(--ui);
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+/* -- the name, top left --------------------------------------------------- */
+#brand {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--frame);
+  border-bottom: 1px solid var(--line);
+}
+.brand-mark { width: 15px; height: 15px; flex: none; }
+.brand-name { font-weight: 600; letter-spacing: .09em; }
+.brand-note { font-size: calc(10.5px * var(--fs)); color: var(--ink-faint); }
+.env {
+  margin-left: auto;
+  font: 600 calc(10px * var(--fs))/1 var(--mono);
+  letter-spacing: .12em;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: #8a6d10;
+  color: #fff;
+}
+/* A live screen must never be mistakable for a test one, or the reverse. */
+.env.prod { background: #a3161d; }
+.env.sim  { background: #5c6066; }
+
+/* -- banners -------------------------------------------------------------- */
+.banner {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  font-size: calc(11.5px * var(--fs));
+  border-bottom: 1px solid var(--line);
+  background: var(--warn-soft);
+  color: #5e4204;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.banner.critical { background: #f4d5d5; color: #6d1f1f; border-bottom-color: #c98d8d; }
+.banner.warn { background: var(--warn-soft); color: #5e4204; border-bottom-color: #dcc389; }
+
+/* -- the desk ------------------------------------------------------------- */
+#desktop {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: auto;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(268px * var(--fs)), 1fr));
+  /* Rows as tall as their tallest window. Resizable windows are scroll
+   * containers, and without this the grid shares the desk's height out
+   * between rows and lays one window over the next. */
+  grid-auto-rows: max-content;
+  gap: 10px;
+  align-content: start;
+}
+/* A window the trader has moved leaves the grid and stays where it was put. */
+#desktop.free { display: block; }
+.win.placed { position: absolute; width: calc(272px * var(--fs)); }
+/* Raised by a click, so an overlapping window can be brought forward. A desk
+ * of draggable windows with a fixed paint order has one you can never read. */
+.win.raised { z-index: 5; }
+
+.win[style*="height"] { min-height: 60px; }
+
+/* The whole terminal's text size, set from the taskbar's A- / A+ and kept
+ * per browser. Every font size in this sheet is multiplied by it, and so are
+ * the window widths, so a bigger size gives a bigger window, not a cramped one. */
+:root { --fs: 1.3; }
+
+.win {
+  /* Drag the bottom-right corner to resize. The size is remembered with the
+   * window's place, and Tidy puts both back. */
+  resize: both;
+  overflow: auto;
+  min-width: 200px;
+  /* A scroll container's automatic minimum height is ZERO, and the desk's
+   * grid then squashes a window under its neighbour. It keeps its content's
+   * height until the trader drags it smaller — and only then. */
+  min-height: min-content;
+  background: var(--frame);
+  border: 1px solid #7d838b;
+  box-shadow: 1px 1px 0 rgba(0,0,0,.22);
+  align-self: start;
+  /* Each window is its OWN stacking context. Without this, a child with a
+   * z-index — the sticky table header in Positions and Analysis — is placed
+   * against the whole page rather than against its own window, and paints
+   * straight through any window drawn over it. On an overlapping desk that
+   * showed the Positions column headers floating across the middle of the
+   * Analysis window. */
+  position: relative;
+  z-index: 0;
+}
+.win.focused { box-shadow: 0 0 0 2px var(--bid), 1px 1px 0 rgba(0,0,0,.22); }
+
+.titlebar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 6px;
+  background: linear-gradient(#d9d9d9, #c6c6c6);
+  border-bottom: 1px solid var(--line);
+  cursor: move;
+  user-select: none;
+}
+.titlebar .swatch { width: calc(7px * var(--fs)); height: calc(7px * var(--fs)); flex: none; border: 1px solid rgba(0,0,0,.35); }
+.titlebar .title { font-weight: 600; font-size: calc(11.5px * var(--fs)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar .venue { font: 400 calc(9.5px * var(--fs))/1 var(--mono); color: var(--ink-faint); letter-spacing: .05em; }
+.winbtns { margin-left: auto; display: flex; gap: 2px; }
+.winbtn {
+  width: calc(16px * var(--fs)); height: calc(15px * var(--fs)); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #8d8d8d; background: #dcdcdc;
+  font: 400 calc(11px * var(--fs))/calc(13px * var(--fs)) var(--ui); color: #333; cursor: pointer;
+}
+.winbtn:hover { background: #eee; }
+
+.badgebar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  background: var(--frame-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.state {
+  font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .1em;
+  padding: 3px 6px; border-radius: 2px; border: 1px solid transparent;
+  background: #e2e2e2; color: var(--ink-faint); border-color: #c6c6c6;
+}
+.state.s-IN      { background: var(--good-soft); color: #245c33; border-color: #9dc6a9; }
+.state.s-ARMED   { background: var(--bid-soft);  color: #0f4f80; border-color: #9cc9e8; }
+.state.s-WORKING { background: var(--bid-soft);  color: #0f4f80; border-color: #9cc9e8; }
+.state.s-WARMING { background: var(--warn-soft); color: #7d5606; border-color: #dcc389; }
+.state.s-BLOCKED { background: #e2e2e2; color: #5c6066; border-color: #bcbcbc; }
+.state.s-HALTED  { background: var(--ask-soft);  color: #7a2020; border-color: #d29a9a; }
+
+.algo { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.algo .lb { font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .1em; color: var(--ink-mute); }
+.sw {
+  width: calc(38px * var(--fs)); height: calc(16px * var(--fs)); padding: 0; position: relative;
+  border: 1px solid #8a8a8a; background: #dcdcdc; border-radius: 2px; cursor: pointer;
+}
+.sw i { position: absolute; top: 1px; left: 1px; width: calc(16px * var(--fs)); height: calc(100% - 4px);
+        background: #f6f6f6; border: 1px solid #9a9a9a; border-radius: 1px; }
+.sw span { position: absolute; right: 4px; top: 0; bottom: 0; display: flex; align-items: center;
+           font: 600 calc(8px * var(--fs))/1 var(--mono); color: #7a7a7a; letter-spacing: .06em; }
+.sw.on { background: var(--good); border-color: #2c6b3c; }
+.sw.on i { left: auto; right: 1px; }
+.sw.on span { right: auto; left: 5px; color: #fff; }
+
+.wbody { background: var(--panel); padding: 5px 6px 6px; display: flex; flex-direction: column; gap: 5px; }
+
+/* -- the two touches ------------------------------------------------------ */
+.touch { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+         background: var(--line-soft); border: 1px solid var(--line-soft); }
+.touch > div { background: #fff; padding: 3px 6px; }
+.touch .k { font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .12em; color: var(--ink-faint); }
+.touch .v { font: 600 calc(17px * var(--fs))/1.15 var(--mono); font-variant-numeric: tabular-nums; }
+.touch .sz { font: 400 calc(9.5px * var(--fs))/1 var(--mono); color: var(--ink-faint); }
+.touch .bidc .v { color: var(--bid); }
+.touch .askc .v { color: var(--ask); }
+/* A stale quote is greyed everywhere, so a price that is not live cannot be
+ * read as one that is. */
+.win.stale .touch .v, .win.stale .midrow .v { color: #9a9a9a !important; }
+
+.midrow { display: flex; align-items: baseline; gap: 6px; padding: 2px 2px 0; }
+.midrow .k { font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .12em; color: var(--ink-faint); }
+.midrow .v { font: 600 calc(13px * var(--fs))/1 var(--mono); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+.kv { display: flex; align-items: baseline; gap: 6px; font-size: calc(11px * var(--fs)); }
+.kv .k { font: 600 calc(9.5px * var(--fs))/1.4 var(--mono); letter-spacing: .08em; color: var(--ink-faint); min-width: calc(38px * var(--fs)); white-space: nowrap; }
+.kv .v { font: 500 calc(11.5px * var(--fs))/1.4 var(--mono); font-variant-numeric: tabular-nums; margin-left: auto; text-align: right; white-space: nowrap; }
+.kv .v.em { font-weight: 600; font-size: calc(12.5px * var(--fs)); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px calc(14px * var(--fs)); }
+
+.sect { border-top: 1px solid var(--line-soft); padding-top: 4px; }
+
+/* The z strip: state at a glance, and the only non-numeric thing here. */
+.zstrip { position: relative; height: calc(15px * var(--fs)); background: #fff;
+          border: 1px solid var(--line-soft); margin: 4px 0; }
+.zstrip .zone { position: absolute; top: 0; bottom: 0; background: #f3f3f3; }
+.zstrip .zone.left { left: 0; width: 20%; }
+.zstrip .zone.right { right: 0; width: 20%; }
+.zstrip .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #c9c9c9; }
+.zstrip .tick.mid { left: 50%; background: #8a8a8a; }
+.zstrip .tick.t-lo { left: 20%; background: var(--warn); }
+.zstrip .tick.t-hi { left: 80%; background: var(--warn); }
+.zstrip .mk { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+.zstrip .mk.b { background: var(--bid); }
+.zstrip .mk.s { background: var(--ask); }
+.zstrip .lbl { position: absolute; top: 1px; font: 400 calc(8px * var(--fs))/1 var(--mono); color: var(--ink-faint); }
+.zstrip .lbl-lo { left: 3px; }
+.zstrip .lbl-hi { right: 3px; }
+.bands .k { color: var(--bid); }
+.bands .kv:last-child .k { color: var(--ask); }
+
+.bar { height: calc(5px * var(--fs)); background: #dcdcdc; border: 1px solid var(--line-soft); position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--warn); width: 0; }
+.bar.full i { background: var(--good); }
+
+.pill { font: 600 calc(9px * var(--fs))/1 var(--mono); letter-spacing: .08em; padding: 2px 5px; border-radius: 2px; }
+.p-pass  { background: var(--good-soft); color: #245c33; }
+.p-block { background: var(--ask-soft);  color: #7a2020; }
+.p-na    { background: #e6e6e6; color: var(--ink-faint); }
+
+.hint { font-size: calc(10.5px * var(--fs)); color: var(--ink-mute); line-height: 1.4; }
+/* Why the window is halted, withheld or has no price: one clear box, not a
+ * paragraph run into the figures above it. */
+.f-blocked { background: #fff; border-left: 3px solid var(--warn); padding: 3px 6px; margin-top: 3px; }
+.win.stale .f-blocked, .state.s-HALTED ~ .f-blocked { border-left-color: var(--ask); }
+.hint b { color: #2c3036; }
+
+.posline { background: #fff; border: 1px solid var(--line-soft); padding: 3px 6px;
+           display: flex; align-items: baseline; gap: 8px; }
+.posline .side { font: 600 calc(10px * var(--fs))/1 var(--mono); letter-spacing: .1em; padding: 2px 5px; border-radius: 2px; }
+.posline .side.SELL { background: var(--ask-soft); color: #7a2020; }
+.posline .side.BUY  { background: var(--bid-soft); color: #0f4f80; }
+.posline .q { font: 600 calc(12px * var(--fs))/1 var(--mono); font-variant-numeric: tabular-nums; }
+.posline .at { font: 400 calc(10px * var(--fs))/1 var(--mono); color: var(--ink-faint); }
+.posline .pnl { margin-left: auto; font: 600 calc(13px * var(--fs))/1 var(--mono); font-variant-numeric: tabular-nums; }
+.pnl.up { color: var(--good); }
+.pnl.dn { color: var(--ask); }
+.flatline { background: #fff; border: 1px solid var(--line-soft); padding: 3px 6px;
+            color: var(--ink-faint); font: 400 calc(11px * var(--fs))/1.4 var(--mono); }
+
+.wfoot { display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+         background: var(--frame-2); border-top: 1px solid var(--line);
+         font: 400 calc(9.5px * var(--fs))/1.3 var(--mono); color: var(--ink-mute); }
+.wfoot .grow { margin-left: auto; text-align: right; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+.wfoot.bad { background: var(--ask-soft); color: #7a2020; }
+.wfoot.warnf { background: var(--warn-soft); color: #7d5606; }
+
+.btn {
+  font: 600 calc(10px * var(--fs))/1 var(--ui); letter-spacing: .06em; padding: 5px 8px;
+  border: 1px solid #8d8d8d; background: linear-gradient(#f2f2f2, #dedede);
+  color: var(--ink); cursor: pointer; border-radius: 2px;
+}
+.btn:hover:not(:disabled) { background: linear-gradient(#fff, #e8e8e8); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.danger { border-color: #8d3a3a; color: #7a2020; background: linear-gradient(#f6e2e2, #eccccc); }
+.btn.wide { width: 100%; }
+.btn:focus-visible, .winbtn:focus-visible, .sw:focus-visible, .tk:focus-visible {
+  outline: 2px solid var(--bid); outline-offset: 1px;
+}
+
+/* -- toasts --------------------------------------------------------------- */
+/* Bottom right, above the taskbar. Windows fill the desk from the top left,
+ * so this is the corner least likely to be sitting over a price — a
+ * notification that hides the market it is reporting on is a bad trade. */
+#toasts { position: fixed; right: 14px; bottom: 42px; width: 258px;
+          display: flex; flex-direction: column-reverse; gap: 6px; z-index: 40; }
+.toast { background: #fbfbfb; border: 1px solid var(--line); border-left-width: 4px;
+         padding: 6px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: calc(11px * var(--fs)); }
+.toast .hd { display: flex; gap: 6px; align-items: baseline; }
+.toast .kind { font: 600 calc(9px * var(--fs))/1 var(--mono); letter-spacing: .12em; }
+.toast .tm { margin-left: auto; font: 400 calc(9px * var(--fs))/1 var(--mono); color: var(--ink-faint); }
+.toast .msg { font: 500 calc(11.5px * var(--fs))/1.35 var(--mono); margin-top: 3px; word-break: break-word; }
+.toast .sub { font-size: calc(10px * var(--fs)); color: var(--ink-mute); margin-top: 2px; }
+.toast .x { margin-left: 6px; color: var(--ink-faint); cursor: pointer; }
+.toast.FILL   { border-left-color: var(--good); } .toast.FILL .kind   { color: #245c33; }
+.toast.OPEN   { border-left-color: var(--bid);  } .toast.OPEN .kind   { color: #0f4f80; }
+.toast.CLOSED { border-left-color: var(--good); } .toast.CLOSED .kind { color: #245c33; }
+.toast.REJECT { border-left-color: var(--ask);  } .toast.REJECT .kind { color: #7a2020; }
+.toast.GUARD  { border-left-color: var(--warn); } .toast.GUARD .kind  { color: #7d5606; }
+
+/* -- taskbar -------------------------------------------------------------- */
+#taskbar { flex: 0 0 auto; display: flex; align-items: center; gap: 5px;
+           padding: 4px 6px; background: var(--frame); border-top: 1px solid var(--line);
+           flex-wrap: wrap; }
+#tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+.tk { font: 500 calc(10.5px * var(--fs))/1 var(--ui); padding: 5px 8px; border: 1px solid #9a9a9a;
+      background: linear-gradient(#e8e8e8, #d6d6d6); border-radius: 2px; cursor: pointer; }
+.tk.act { background: linear-gradient(#fff, #ececec); border-color: #6f6f6f; font-weight: 600; }
+.tk:hover { background: linear-gradient(#f6f6f6, #e2e2e2); }
+.taskbar-right { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.link { font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .06em; padding: 5px 7px; border-radius: 2px;
+        background: #e2e2e2; color: var(--ink-mute); }
+.link.ok   { background: var(--good-soft); color: #245c33; }
+.link.part { background: var(--warn-soft); color: #7d5606; }
+.link.bad  { background: var(--ask-soft);  color: #7a2020; }
+.stat { font: 400 calc(9.5px * var(--fs))/1 var(--mono); color: var(--ink-mute); padding: 0 4px; }
+.kill { font: 700 calc(10px * var(--fs))/1 var(--ui); letter-spacing: .1em; padding: 5px 10px;
+        border: 1px solid #7a1c1c; background: linear-gradient(#c04141, #a32828);
+        color: #fff; border-radius: 2px; cursor: pointer; }
+.menu { position: absolute; bottom: 34px; left: 6px; background: var(--panel);
+        border: 1px solid var(--line); box-shadow: 0 -2px 8px rgba(0,0,0,.3);
+        z-index: 50; min-width: 190px; }
+.menu button { display: block; width: 100%; text-align: left; padding: 5px 9px;
+               border: 0; background: transparent; font: 400 calc(11px * var(--fs))/1.3 var(--ui); cursor: pointer; }
+.menu button:hover { background: var(--bid-soft); }
+
+/* -- the one modal -------------------------------------------------------- */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+         display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-box { background: var(--panel); border: 1px solid #6f6f6f; padding: 14px 16px;
+             min-width: 300px; max-width: 420px; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
+.modal-box h2 { margin: 0 0 8px; font-size: calc(14px * var(--fs)); }
+.modal-box p { margin: 0 0 14px; font-size: calc(12px * var(--fs)); line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* The spread an order is reviewed against: plain, and RED when it is wider
+   than the contract's "Book no wider than". */
+.modal-box p.modal-warn { padding: 5px 8px; border: 1px solid #b9b9b9; background: #f4f4f4;
+                          font-family: var(--mono, monospace); }
+.modal-box p.modal-warn.wide { border-color: #b03030; background: #f6e2e2; color: #8a1c1c; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* -- the Positions window -------------------------------------------------
+ * Wider than a contract window because it is a table, and it spans the grid
+ * rather than sitting in one cell of it. */
+.win.winwide { grid-column: 1 / -1; }
+.win.winwide.placed { width: min(1180px, calc(100vw - 40px)); }
+.tablewrap { overflow-x: auto; max-height: 260px; overflow-y: auto; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: calc(11px * var(--fs));
+             background: #fff; }
+table.grid th {
+  /* z-index 1 is now scoped to its own window (see `.win`), so it lifts the
+   * header above its own scrolling rows and nothing else. */
+  position: sticky; top: 0; z-index: 1;
+  text-align: left; background: var(--frame-2);
+  border-bottom: 1px solid var(--line);
+  font: 600 calc(8.5px * var(--fs))/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: #4a4e55; padding: 5px 7px; white-space: nowrap;
+}
+table.grid td { border-bottom: 1px solid #e9e9e9; padding: 4px 7px;
+                font-family: var(--mono); font-variant-numeric: tabular-nums;
+                white-space: nowrap; }
+table.grid td.txt { font-family: var(--ui); }
+table.grid td.r, table.grid th.r { text-align: right; }
+table.grid tbody tr:nth-child(even) td { background: #fafafa; }
+table.grid tfoot td { background: var(--frame-2); font-weight: 600;
+                      border-top: 1px solid var(--line); }
+table.grid .tickets { font-size: calc(9.5px * var(--fs)); color: var(--ink-faint); max-width: 150px;
+                      overflow: hidden; text-overflow: ellipsis; }
+/* A venue row that disagrees with this book is the row to look at. */
+table.grid tr.disagrees td { background: var(--warn-soft) !important; }
+table.grid tr.hedged td { background: var(--ask-soft) !important; color: #7a2020; }
+.tag { font: 600 calc(8.5px * var(--fs))/1 var(--mono); letter-spacing: .09em; padding: 2px 5px;
+       border-radius: 2px; }
+.tag.BUY  { background: var(--bid-soft); color: #0f4f80; }
+.tag.SELL { background: var(--ask-soft); color: #7a2020; }
+.pv-empty { margin: 8px; }
+.pv-banner { border-bottom: 0; }
+
+
+/* =========================================================================
+ * The Settings and Exchanges pages.
+ *
+ * Same visual language as the desk — grey chrome, mono figures, blue bid and
+ * red ask — but laid out as a page rather than a window, because these are
+ * read and filled in rather than watched.
+ * ========================================================================= */
+
+body.page-body { overflow: auto; background: var(--desk); }
+
+.pgbar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px;
+  background: var(--frame); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20;
+}
+.pgbar h4 { margin: 0; font: 600 calc(13px * var(--fs))/1 var(--ui); }
+.pgbar .crumb { font: 400 calc(10.5px * var(--fs))/1 var(--mono); color: var(--ink-faint); }
+.pgbar-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.pgbar a.tk { text-decoration: none; color: var(--ink); }
+.tk.pri { border-color: #2c6b3c; color: #fff;
+          background: linear-gradient(#4f9c63, #3f8b52); font-weight: 600; }
+.saved { font: 400 calc(10px * var(--fs))/1 var(--mono); color: var(--good); }
+
+.pagebody { flex: 1 1 auto; padding: 12px; }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 12px; align-items: start; }
+.cols .card.wide { grid-column: 1 / -1; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+
+.card { background: #fff; border: 1px solid var(--line-soft); }
+.card > h5 {
+  margin: 0; padding: 5px 9px;
+  background: var(--frame-2); border-bottom: 1px solid var(--line-soft);
+  font: 600 calc(10px * var(--fs))/1.3 var(--mono); letter-spacing: .13em; text-transform: uppercase;
+  color: #3f434a; display: flex; align-items: center; gap: 8px;
+}
+.card > h5 .note { margin-left: auto; font: 400 calc(9.5px * var(--fs))/1 var(--mono);
+                   color: var(--ink-faint); letter-spacing: .04em;
+                   text-transform: none; }
+.card .cb { padding: 8px 9px; display: flex; flex-direction: column; gap: 7px; }
+.card .cb.cb-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 7px 16px;
+}
+
+/* One label/control pair. The label carries the explanation, because a
+ * setting whose meaning lives in a manual is a setting set wrongly. */
+/* The control column fits the widest thing that goes in it — a select
+ * reading "Cross at ma" is a setting nobody can check at a glance. */
+.f { display: grid; grid-template-columns: minmax(0, 1fr) 148px; gap: 10px;
+     align-items: center; margin: 0; }
+.f > span { font-size: calc(11.5px * var(--fs)); color: #2c3036; }
+.f > span small { display: block; color: var(--ink-faint); font-size: calc(10px * var(--fs));
+                  line-height: 1.35; margin-top: 1px; }
+.f input[type=text], .f input[type=number], .f input[type=password], .f select {
+  width: 100%; font: 500 calc(11.5px * var(--fs))/1 var(--mono); padding: 4px 5px;
+  border: 1px solid #a4a4a4; background: var(--field); color: var(--ink);
+  border-radius: 1px;
+}
+.f input:focus, .f select:focus { outline: 2px solid var(--bid); outline-offset: 0; }
+.f input.chk { width: 15px; height: 15px; justify-self: end; }
+
+.radiorow { display: flex; gap: 6px; }
+.radiorow .radio {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+  border: 1px solid #a4a4a4; padding: 4px;
+  font: 600 calc(10.5px * var(--fs))/1 var(--mono); letter-spacing: .08em;
+  background: var(--field); cursor: pointer;
+}
+/* UAT and PROD must never look like each other. */
+.radiorow .radio.sel-uat  { background: var(--warn-soft); border-color: #c39a3a; color: #7d5606; }
+.radiorow .radio.sel-prod { background: #f4d5d5; border-color: #a3161d; color: #7a2020; }
+
+.rowlist { display: flex; flex-direction: column; gap: 1px;
+           background: var(--line-soft); border: 1px solid var(--line-soft); }
+.rowlist:empty { display: none; }
+.rowlist .row { background: #fff; padding: 5px 8px; display: flex;
+                align-items: center; gap: 8px; cursor: pointer; font-size: calc(11.5px * var(--fs)); }
+.rowlist .row:hover { background: var(--bid-soft); }
+.rowlist .row.prod { border-left: 3px solid var(--ask); }
+.rowlist .rname { font-weight: 600; }
+.rowlist .rdetail { font: 400 calc(10.5px * var(--fs))/1 var(--mono); color: var(--ink-mute); }
+.rowlist .rpw { margin-left: auto; font: 400 calc(9.5px * var(--fs))/1 var(--mono);
+                color: var(--ink-faint); }
+
+.rowactions { display: flex; gap: 6px; align-items: center; padding-top: 2px; }
+.rowactions .grow { flex: 1 1 auto; }
+.btn.sm { padding: 3px 6px; font-size: calc(9.5px * var(--fs)); margin-left: 4px; }
+.btn.pri { border-color: #2c6b3c; color: #fff;
+           background: linear-gradient(#4f9c63, #3f8b52); }
+
+/* The three buttons' answer, in the venue's own voice. */
+.diag { background: #12161a; color: #cfe3d3; font: 400 calc(10.5px * var(--fs))/1.6 var(--mono);
+        padding: 8px 9px; max-height: 320px; overflow: auto; }
+.diag .dline { display: flex; gap: 8px; }
+.diag .dline.ok b { color: #7fd694; }
+.diag .dline.bad b { color: #ef8b8b; }
+.diag .dline.wait b { color: #f0c36a; }
+.diag .dcheck { min-width: 130px; color: #9fb4c2; }
+.diag .ddetail { color: #cfe3d3; }
+.diag .dfix { color: #e8b04b; padding-left: 46px; }
+
+/* A number the operator typed is not the venue's answer any more. */
+td.override { color: var(--warn); font-weight: 600; }
+td.override::after { content: ' ·'; }
+tr.disagrees td { background: var(--warn-soft) !important; }
+
+.mono { font-family: var(--mono); }
+.hint.bad-hint { color: #7a2020; }
+#toasts { z-index: 60; }
+
+/* The taskbar's links look and behave like its buttons. */
+#taskbar a.tk { text-decoration: none; color: var(--ink); display: inline-block; }
+
+.hint.sim-note { background: var(--warn-soft); border-left: 3px solid var(--warn);
+                 color: #5e4204; padding: 5px 7px; margin: 4px 0; }
+
+
+/* -- the Analysis window --------------------------------------------------
+ * A table, so it spans the grid rather than sitting in one cell of it. */
+.subtabs { display: flex; gap: 0; background: var(--frame-2);
+           border-bottom: 1px solid var(--line); align-items: center; }
+.subtabs .an-tabs { display: flex; }
+.subtabs button {
+  font: 500 calc(10.5px * var(--fs))/1 var(--ui); padding: 6px 11px; border: 0;
+  border-right: 1px solid var(--line-soft); background: transparent;
+  color: #3f434a; cursor: pointer;
+}
+.subtabs button.on { background: var(--panel); font-weight: 600;
+                     box-shadow: inset 0 -2px 0 var(--bid); }
+.subtabs button:hover { background: var(--panel); }
+.subtabs .right { margin-left: auto; display: flex; align-items: center;
+                  gap: 6px; padding: 3px 6px; }
+.subtabs select { font: 500 calc(10.5px * var(--fs))/1 var(--mono); padding: 3px 4px;
+                  border: 1px solid #a4a4a4; background: var(--field); }
+.subtabs a.btn { text-decoration: none; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+         gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+.tile { background: #fff; padding: 6px 8px; }
+.tile .k { font: 600 calc(8.5px * var(--fs))/1 var(--mono); letter-spacing: .12em;
+           color: var(--ink-faint); text-transform: uppercase; }
+.tile .v { font: 600 calc(18px * var(--fs))/1.2 var(--mono); font-variant-numeric: tabular-nums;
+           margin-top: 3px; }
+.tile .s { font: 400 calc(9.5px * var(--fs))/1.3 var(--mono); color: var(--ink-mute); margin-top: 1px; }
+.tile .v.up { color: var(--good); } .tile .v.dn { color: var(--ask); }
+
+.an-two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+          gap: 8px; align-items: start; }
+@media (max-width: 900px) { .an-two { grid-template-columns: 1fr; } }
+.an-stack { display: flex; flex-direction: column; gap: 8px; }
+.tablewrap.tall { max-height: 300px; }
+
+/* A count you can compare at a glance, without a chart library. */
+.cbar { position: relative; height: 11px; background: #eee; border: 1px solid #ddd;
+        min-width: 48px; }
+.cbar i { position: absolute; left: 0; top: 0; bottom: 0; }
+.cbar i.pos { background: #8fc2e8; } .cbar i.neg { background: #e2a3a3; }
+
+.finding { background: #eef4fa; border: 1px solid #b8d3e8;
+           border-left: 3px solid var(--bid); padding: 6px 8px;
+           font-size: calc(11px * var(--fs)); line-height: 1.5; color: #20364a; }
+.finding b { color: #12293d; }
+.finding.warn { background: var(--warn-soft); border-color: #dcc389;
+                border-left-color: var(--warn); color: #5e4204; }
+.finding.warn b { color: #3f2c02; }
+
+table.grid .tag.t-buy  { background: var(--bid-soft); color: #0f4f80; }
+table.grid .tag.t-sell { background: var(--ask-soft); color: #7a2020; }
+table.grid .tag.t-cxl  { background: #e6e6e6; color: #5c6066; }
+table.grid td.up { color: var(--good); } table.grid td.dn { color: var(--ask); }
+
+/* A level that reverts but cannot cover its round trip. Shown, because the
+ * contrast is the point — dimmed, because it is not a threshold to aim at. */
+table.grid tr.cannot-pay td { color: var(--ink-faint); }
+table.grid tr.cannot-pay .tag { opacity: .55; }
+
+/* -- one contract's settings, behind the gear ----------------------------- */
+.cfgwin { width: 460px; }
+/* Out of the grid: opening a settings panel must not re-flow the windows
+ * the trader is reading. `.placed` (after a drag) would otherwise size it
+ * like a contract tile. */
+.win.floating { position: absolute; }
+.win.cfgwin.placed, .win.cfgwin.floating { width: 460px; }
+.cfgwin .cfg-state { background: #7a6cae; color: #fff; }
+.cfgwin .badgebar .hint { font-size: calc(10px * var(--fs)); color: var(--ink-mute); }
+.cfg-body { padding: 8px 9px; display: flex; flex-direction: column; gap: 7px;
+            max-height: 420px; overflow-y: auto; background: var(--panel); }
+.cfg-body .cb { display: flex; flex-direction: column; gap: 7px; }
+.cfg-body .f { grid-template-columns: minmax(0, 1fr) 190px; }
+/* The control and, beside it, the value this contract will actually trade
+ * on. A blank box is not a zero, and the grey figure is what says so. */
+.cf-c { display: flex; align-items: center; gap: 6px; }
+.cf-c > input, .cf-c > select { flex: 1 1 auto; min-width: 0; }
+.cf-c > input.chk { flex: 0 0 auto; }
+.cf-eff { flex: 0 0 54px; text-align: right;
+          font: 500 calc(10.5px * var(--fs))/1 var(--mono); font-variant-numeric: tabular-nums;
+          color: var(--ink-faint); }
+.cf-eff.own { color: #2c3036; font-weight: 600; }
+.cfgwin .wfoot .cfg-note { color: var(--ink-mute); }
+
+/* The threshold that actually paid. Marked, because the table beside it —
+ * which level reverts most — reliably points somewhere else. */
+table.grid tr.pays td { background: #eef6f0; }
+table.grid tr.pays .tag { background: #cfe6d6; color: #1d5130; font-weight: 700; }
+.an-replay-assumptions { line-height: 1.5; }
+
+/* -- marking a position on the window itself -------------------------------
+ *
+ * A trader watching eight windows should not have to read eight of them to
+ * find the one that just did something. So: BLUE while a position is open —
+ * a state, not an event, and therefore still right after a page reload — and
+ * a flash of GREEN or RED when one closes.
+ *
+ * The flash does not stay. A window left red says "this is losing", which is
+ * a different statement from "the last trade lost", and a desk back from
+ * lunch to eight coloured windows learns nothing from any of them.
+ *
+ * WHERE the colour goes matters. It tints the window's FRAME, its titlebar
+ * and its border — never a layer over the figures. An overlay above the
+ * content would put every price, z and P&L behind a wash, and a tint that
+ * makes a number harder to read has cost more than it gave. The panels
+ * carrying the numbers stay exactly as they were.
+ */
+.win.contractwin {
+  transition: background-color .25s linear, border-color .25s linear;
+}
+.win.contractwin > .titlebar { transition: background-color .25s linear; }
+
+/* In a position. Held for as long as the position is. */
+.win.contractwin.in-position { background: #dbe9f6; border-color: #3f7cb0; }
+.win.contractwin.in-position > .titlebar { background: linear-gradient(#cfe1f4, #b5d3ee); }
+
+/* Closed, in profit. */
+.win.contractwin.closed-up { background: #cfe9d8; border-color: #2f8a52; }
+.win.contractwin.closed-up > .titlebar { background: linear-gradient(#c3e5cf, #a6d6b7); }
+
+/* Closed, at a loss. */
+.win.contractwin.closed-down { background: #f4d3d3; border-color: #b13a3a; }
+.win.contractwin.closed-down > .titlebar { background: linear-gradient(#f2c8c8, #e6b0b0); }
+
+/* Closed at break-even, or closed with a net nothing could measure. Neither
+ * green nor red: a P&L of nothing is not a win, and an unmeasured one is not
+ * a loss — colouring it red would state a loss the system never measured. */
+.win.contractwin.closed-flat { background: #e2e4e7; border-color: #7c8087; }
+.win.contractwin.closed-flat > .titlebar { background: linear-gradient(#dcdfe3, #ccd0d5); }
+
+/* The flash going out. Slow enough to be seen leaving, so the eye is not
+ * pulled back to a window that has finished saying something. */
+.win.contractwin.closed-up.fading,
+.win.contractwin.closed-down.fading,
+.win.contractwin.closed-flat.fading {
+  transition: background-color 1.5s ease-out, border-color 1.5s ease-out;
+  background: var(--frame); border-color: #7d838b;
+}
+.win.contractwin.closed-up.fading > .titlebar,
+.win.contractwin.closed-down.fading > .titlebar,
+.win.contractwin.closed-flat.fading > .titlebar {
+  transition: background-color 1.5s ease-out;
+  background: linear-gradient(#d9d9d9, #c6c6c6);
+}
+/* A window that is still IN a position keeps its blue as the flash leaves —
+ * a part fill closes some of a position and leaves the rest on. */
+.win.contractwin.in-position.fading { background: #dbe9f6; border-color: #3f7cb0; }
+.win.contractwin.in-position.fading > .titlebar {
+  background: linear-gradient(#cfe1f4, #b5d3ee);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .win.contractwin, .win.contractwin > .titlebar { transition: none; }
+}
+
+/* The trading mode. MANUAL is marked, because a desk whose algo is not
+ * trading must never be mistaken for one that is. */
+.tk.mode { font-weight: 700; }
+.tk.mode.manual { background: var(--warn-soft); border-color: var(--warn); color: #5e4204; }
+
+/* The one-way badge, the missing-margin warning and the NET figure. */
+.dirbadge { font: 600 calc(9px * var(--fs))/1 var(--mono); letter-spacing: .08em;
+  padding: 3px 6px; border-radius: 2px; background: var(--warn-soft); color: #5e4204;
+  border: 1px solid #dcc389; }
+.warn-text { color: #7a2020; }
+.kv .v.up { color: var(--good); }
+.kv .v.dn { color: var(--ask); }
+
+/* The chart window. */
+.chartwin.placed, .chartwin.floating { width: calc(560px * var(--fs)); }
+.chartwin.floating { position: absolute; }
+.chartwin svg.chart { width: 100%; height: auto; background: #fff;
+  border: 1px solid var(--line-soft); display: block; }
+.chartwin .px { fill: none; stroke: #2c3036; stroke-width: 1.2; }
+.chartwin .lvl { stroke-width: 1; }
+.chartwin .lvl-mean { stroke: #8a8a8a; }
+.chartwin .lvl-entry { stroke: var(--warn); stroke-dasharray: 5 3; }
+.chartwin .lvl-stop { stroke: var(--ask); stroke-dasharray: 2 3; }
+.chartwin .lvl-label, .chartwin .axis { font: 400 9px var(--mono); fill: #5c6066; }
+.chartwin .mark.BUY { fill: var(--bid); }
+.chartwin .mark.SELL { fill: var(--ask); }
+.chartwin .mark.close { stroke: #2c3036; stroke-width: 1; }
+
+/* -- the desk's Algo window and ladder (ported from the MT5 desk) --------- */
+.win.algowin { min-width: 280px; }
+.win.algowin .aw-body { padding: 0; background: #fff; }
+.win.algowin .aw-mode {
+  font: 700 calc(10px * var(--fs)) var(--ui);
+  padding: 0 5px;
+  border-radius: 2px;
+  margin-left: 6px;
+}
+.win.algowin .aw-mode.live { background: #c0392b; color: #fff; }
+.win.algowin .aw-mode.dry { background: #e8a33d; color: #fff; }
+.win.algowin .aw-section {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: calc(11px * var(--fs));
+}
+.win.algowin .aw-head {
+  font: 700 calc(10px * var(--fs)) var(--ui);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink-mute);
+  margin-bottom: 3px;
+}
+.win.algowin .aw-head2 { font-weight: 700; margin-bottom: 1px; }
+.win.algowin .aw-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 4px;
+  align-items: stretch;
+}
+.win.algowin .aw-tile {
+  border: 2px solid transparent;
+  border-radius: 3px;
+  padding: 2px 4px;
+  text-align: center;
+  background: #f6f6f6;
+}
+.win.algowin .aw-tile.hit { border-color: currentColor; background: #fff; }
+.win.algowin .aw-tile.off { opacity: .45; }
+.win.algowin .aw-tile-head small { font-weight: 400; }
+.win.algowin .aw-tile.sell { color: var(--bid, #1f6fd1); }
+.win.algowin .aw-tile.buy { color: var(--ask, #c0392b); }
+.win.algowin .aw-tile-head { font: 700 calc(9px * var(--fs)) var(--ui); color: var(--ink); }
+.win.algowin .aw-tile-price { font: 700 calc(16px * var(--fs)) var(--mono); }
+.win.algowin .aw-tile-z { font: 700 calc(20px * var(--fs)) var(--mono); line-height: 1.15; }
+.win.algowin .aw-tile-entry { font-size: calc(9px * var(--fs)); color: var(--ink-mute); }
+.win.algowin .aw-pos {
+  align-self: center;
+  font: 700 calc(12px * var(--fs)) var(--ui);
+  padding: 4px 6px;
+  border-radius: 3px;
+  color: #fff;
+  background: #888;
+  white-space: nowrap;
+}
+.win.algowin .aw-pos.long { background: #2e9e4f; }
+.win.algowin .aw-pos.short { background: #c0392b; }
+.win.algowin .aw-line { margin: 3px 0; font-weight: 700; }
+.win.algowin .aw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 10px;
+}
+.win.algowin .aw-kv { display: flex; justify-content: space-between; gap: 6px; }
+.win.algowin .aw-kv.wide { grid-column: 1 / -1; }
+.win.algowin .aw-kv > span { color: var(--ink-mute); white-space: nowrap; }
+.win.algowin .aw-kv > b { font: 700 calc(11px * var(--fs)) var(--mono); text-align: right; }
+.win.algowin .aw-kv > b.up { color: #2e9e4f; }
+.win.algowin .aw-kv > b.down { color: #c0392b; }
+.win.algowin .aw-data {
+  display: flex; align-items: center; gap: 6px; margin-top: 3px;
+  color: var(--ink-mute);
+}
+.win.algowin .aw-bar {
+  flex: 1; height: 6px; background: #e3e3e3; border-radius: 3px; overflow: hidden;
+}
+.win.algowin .aw-bar > div { height: 100%; }
+.win.algowin .aw-bar > .ok { background: #2e9e4f; }
+.win.algowin .aw-bar > .wait { background: #e8a33d; }
+.win.algowin .aw-badges {
+  display: flex; gap: 8px; margin-bottom: 4px; text-align: center;
+}
+.win.algowin .aw-badges small { display: block; font-size: calc(9px * var(--fs)); color: var(--ink-mute); }
+.win.algowin .aw-badge {
+  display: inline-block; min-width: 26px; padding: 0 4px;
+  border-radius: 2px; font: 700 calc(10px * var(--fs)) var(--ui); color: #fff;
+}
+.win.algowin .aw-badge.ok { background: #2e9e4f; }
+.win.algowin .aw-badge.bad { background: #c0392b; }
+.win.algowin .aw-badge.wait { background: #e8a33d; }
+.win.algowin .aw-badge.off { background: #999; }
+.win.algowin .aw-blocked {
+  margin-top: 4px; padding: 3px 4px; background: #f3f3f3; border-radius: 3px;
+}
+.win.algowin .aw-armed { color: #c0392b; }
+.win.algowin .aw-bt-controls { display: flex; gap: 4px; margin: 2px 0; }
+.win.algowin .aw-bt-out { font-size: calc(11px * var(--fs)); }
+.win.algowin .aw-bt-out .up { color: #2e9e4f; }
+.win.algowin .aw-bt-out .down, .win.algowin .aw-bt-out.down { color: #c0392b; }
+.win.algowin .aw-bt-trades { width: 100%; border-collapse: collapse; margin: 3px 0; }
+.win.algowin .aw-bt-trades th, .win.algowin .aw-bt-trades td {
+  text-align: left; padding: 1px 3px; border-bottom: 1px solid #eee;
+}
+.win.algowin .aw-last-order .up { color: #2e9e4f; font-weight: 600; }
+.win.algowin .aw-last-order .down { color: #c0392b; font-weight: 600; }
+
+/* SL <- entry -> TP: the stop on the left, the target on the right, the
+ * entry marked and the closing price a tick on it. */
+.win.algowin .algo-progress { margin: 3px 0 1px; }
+.win.algowin .ap-pct { font-size: calc(9px * var(--fs)); text-align: center; }
+.win.algowin .ap-track {
+  position: relative; height: 8px; background: #e3e3e3;
+  border-radius: 2px; overflow: hidden;
+}
+.win.algowin .ap-fill { position: absolute; top: 0; bottom: 0; }
+.win.algowin .ap-fill.up { background: #2e9e4f; }
+.win.algowin .ap-fill.down { background: #c0392b; }
+.win.algowin .ap-entry, .win.algowin .ap-mark {
+  position: absolute; top: -1px; bottom: -1px; width: 2px;
+}
+.win.algowin .ap-entry { background: #555; }
+.win.algowin .ap-mark { background: #000; }
+.win.algowin .ap-ends {
+  display: flex; justify-content: space-between; font-size: calc(9px * var(--fs));
+  color: var(--ink-mute);
+}
+
+
+.win.algowin .aw-mode.paper { background: #3f7cb0; color: #fff; }
+.win.algowin .aw-tile-entry b, .win.algowin .aw-armed { font-weight: 700; }
+.win.algowin .aw-closebar { padding: 4px 6px; border-bottom: 1px solid var(--line-soft); }
+.win.algowin .aw-bt-controls select, .win.algowin .aw-bt-controls .btn { font-size: calc(11px * var(--fs)); }
+
+/* Minimised: off the desk, its taskbar button still there and greyed. */
+.win.minimised { display: none !important; }
+#tabs .tk.minimised { opacity: .6; font-style: italic; }
+
+/* The ladder: the touch, and the Algo's own levels against it. */
+/* -- the desk ladder: the MT5 desk's ladder, on one contract ------------
+ * Colours, proportions and furniture taken from that ladder (ladder.css):
+ * solid blue Bids and red Asks columns that never change size, a near-white
+ * Work and LTQ either side, the heavy rule at the mid, the B/S/W bar. */
+.win.ladderwin {
+  --lb-frame: #cfcfcf; --lb-frame-dark: #c4c4c4; --lb-line: #9d9d9d;
+  --lb-text: #1c1c1c; --lb-muted: #4c4c4c; --lb-price: #f2f2f2; --lb-rule: #e4e4e4;
+  --lb-bid: #4a9ede; --lb-bid-cell: #6fb6e8; --lb-ask: #b83232; --lb-ask-cell: #cf4a4a;
+  --lb-ink: #06304f; --lb-work-buy: #dceffb; --lb-work-sell: #f6c8c8;
+  --lb-bid-strong: #1f7ac2; --lb-ask-strong: #a02828; --lb-traded: #4a9c5d;
+  --lb-down: #c0504d; --lb-last: #e6e0f5; --lb-row: calc(17px * var(--fs));
+  min-width: 0; width: auto; display: flex; flex-direction: column;
+  background: var(--lb-frame); color: var(--lb-text);
+}
+.win.ladderwin.placed { width: calc(330px * var(--fs)); }
+.ladderwin .titlebar { gap: 6px; }
+.ladderwin .titlebar .swatch { background: var(--lb-bid); }
+.ladderwin .ld-route { display: none; }
+.ladderwin .titlebar .title { max-width: none; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ladderwin .ld-ordtype { margin-left: auto; font: 700 calc(10px * var(--fs))/1 var(--ui); letter-spacing: .5px; white-space: nowrap; }
+.ladderwin .ld-mode { font: 700 calc(10px * var(--fs))/1 var(--ui); padding: 2px 6px; border-radius: 2px; color: #fff; background: #777; white-space: nowrap; letter-spacing: .5px; }
+.ladderwin .ld-mode.live { background: #c0392b; }
+.ladderwin .ld-mode.paper { background: #3f7cb0; }
+.ladderwin .ld-mode.dry { background: #b07a14; }
+.ladderwin .ld-mode.off { background: #777; }
+.ladderwin .ld-mode.manual { background: #2f7d3f; }
+.ladderwin .titlebar .winbtns { margin-left: 4px; }
+
+.ladderwin .ld-quotestrip { display: flex; align-items: center; gap: 14px; padding: 3px 6px; background: var(--lb-frame); border-bottom: 1px solid var(--lb-line); }
+.ladderwin .ld-netchg { font: 700 calc(17px * var(--fs))/1.2 var(--mono); color: var(--lb-down); min-width: 5ch; }
+.ladderwin .ld-netchg.up { color: var(--lb-traded); }
+.ladderwin .ld-netchg.flat { color: var(--lb-muted); }
+.ladderwin .ld-stats { display: flex; flex-direction: column; font: calc(10px * var(--fs))/1.3 var(--ui); color: var(--lb-muted); }
+.ladderwin .ld-stats b { font-family: var(--mono); color: var(--lb-text); }
+.ladderwin .ld-stats label { margin-right: 3px; }
+.ladderwin .ld-ours { margin-left: auto; font-size: calc(9px * var(--fs)); color: var(--lb-muted); border: 1px dotted var(--lb-muted); padding: 0 3px; cursor: help; }
+
+.ladderwin .ld-lock { background: #c0392b; color: #fff; font: 700 calc(11px * var(--fs))/1.3 var(--ui); padding: 4px 8px; text-align: center; }
+.ladderwin .ld-switch { margin: 3px auto 0; display: inline-block; font: 700 calc(10.5px * var(--fs))/1.2 var(--ui); padding: 2px 8px; background: #fff; color: #a02828; border: 1px solid #fff; border-radius: 2px; cursor: pointer; }
+.ladderwin .ld-switch:hover { background: #ffe9e9; }
+.ladderwin .ld-switch.hidden { display: none; }
+
+.ladderwin .ld-body { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.ladderwin .ld-rail { display: flex; flex-direction: column; gap: 1px; width: calc(100px * var(--fs)); flex: 0 0 auto; padding: 3px; background: var(--lb-frame); border-right: 1px solid var(--lb-line); overflow-y: auto; overflow-x: hidden; font: calc(10px * var(--fs))/1.25 var(--ui); }
+.ladderwin .ld-rail select, .ladderwin .ld-rail input[type="number"] { width: 100%; min-width: 0; font: calc(10px * var(--fs)) var(--ui); padding: 2px 3px; border: 1px solid var(--lb-line); border-radius: 2px; }
+.ladderwin .ld-rail select { font-weight: 600; background: linear-gradient(#fff, #ececec); color: var(--lb-text); opacity: 1; }
+.ladderwin .ld-rail input[type="number"] { background: #fff; box-shadow: inset 1px 1px 2px rgba(0,0,0,.12); }
+.ladderwin .ld-routebox { font: calc(9px * var(--fs))/1.25 var(--ui); color: var(--lb-muted); background: #fff; border: 1px solid var(--lb-line); padding: 2px 3px; }
+.ladderwin .ld-routebox b { display: block; color: var(--lb-text); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ladderwin .ld-moderow { display: flex; gap: 2px; }
+.ladderwin .ld-quoting { font-size: calc(9px * var(--fs)); color: var(--lb-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ladderwin .ld-quick { position: relative; font: 700 calc(12px * var(--fs))/1.2 var(--ui); padding: 4px 0; border: 1px solid rgba(0,0,0,.35); border-radius: 2px; cursor: pointer; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.35); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.3); }
+.ladderwin .ld-quick:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,.35); }
+.ladderwin .ld-buy { background: var(--lb-ask-strong); }
+.ladderwin .ld-sell { background: var(--lb-bid-strong); }
+.ladderwin .ld-flatten, .ladderwin .ld-close-go { background: #444; }
+.ladderwin .ld-flatten:not(:disabled) { box-shadow: 0 0 0 2px #e0b030, inset 0 1px 0 rgba(255,255,255,.35); }
+.ladderwin .ld-flatten:disabled, .ladderwin .ld-close-go:disabled { opacity: .55; cursor: default; }
+.ladderwin .ld-buy:disabled, .ladderwin .ld-sell:disabled, .ladderwin.algo-locked .ld-keypad, .ladderwin.algo-locked .ld-qtyrow { opacity: .35; cursor: not-allowed; }
+.ladderwin.manual-on td.bid, .ladderwin.manual-on td.ask { cursor: pointer; }
+.ladderwin.manual-on td.bid:hover, .ladderwin.manual-on td.ask:hover { outline: 2px solid #111; outline-offset: -2px; }
+.ladderwin .ld-keypad button:not(:disabled) { cursor: pointer; }
+.ladderwin .ld-lock.manual { background: #2f6b3a; }
+.ladderwin .ld-closelmt { display: flex; gap: 2px; }
+.ladderwin .ld-closelmt input { flex: 1 1 auto; }
+.ladderwin .ld-closelmt .ld-close-go { flex: 0 0 auto; padding: 2px 5px; font-size: calc(11px * var(--fs)); }
+.ladderwin .ld-closelmt.resting input { border-color: #d9a520; box-shadow: inset 0 0 0 1px #d9a520; }
+.ladderwin .ld-inline { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+.ladderwin .ld-inline > span { flex: 1 1 auto; color: var(--lb-muted); white-space: nowrap; }
+.ladderwin .ld-inline input { flex: 0 1 62px; width: 62px; }
+.ladderwin .ld-qty-buy { font-weight: 700; color: var(--lb-ask-strong) !important; }
+.ladderwin .ld-qty-sell { font-weight: 700; color: var(--lb-bid-strong) !important; }
+.ladderwin .ld-qtybox.buy { border-left: 3px solid var(--lb-ask-strong) !important; }
+.ladderwin .ld-qtybox.sell { border-left: 3px solid var(--lb-bid-strong) !important; }
+.ladderwin .ld-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+.ladderwin .ld-keypad button { font: 600 calc(10px * var(--fs)) var(--ui); background: linear-gradient(#fff, #e6e6e6); border: 1px solid var(--lb-line); border-radius: 2px; padding: 1px 0; }
+.ladderwin .ld-raillabel { font-size: calc(9px * var(--fs)); color: var(--lb-muted); margin-top: 1px; }
+.ladderwin .ld-cxlrow { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 2px; }
+.ladderwin .ld-cxl { white-space: nowrap; overflow: hidden; font: 600 calc(10px * var(--fs)) var(--ui); padding: 2px 3px; border: 1px solid var(--lb-line); border-radius: 2px; cursor: pointer; background: linear-gradient(#fff, #e6e6e6); text-align: left; }
+.ladderwin .ld-cxl-s { background: #e9a6aa; }
+.ladderwin .ld-cxl-b { background: #bfe0f4; }
+.ladderwin .ld-cxl sup { font-size: calc(9px * var(--fs)); margin-left: 2px; }
+.ladderwin .ld-cxl:disabled { opacity: .45; cursor: default; filter: grayscale(1); }
+.ladderwin .ld-centrerow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+.ladderwin .ld-check { display: flex; align-items: center; gap: 2px; font-size: calc(10px * var(--fs)); }
+.ladderwin .ld-centre { flex: 1 0 auto; padding: 1px 6px; font-size: calc(10px * var(--fs)); }
+
+.ladderwin .ld-grid { position: relative; flex: 1; min-width: 0; overflow-y: auto; background: #f7f7f7; max-height: calc(390px * var(--fs)); }
+.ladderwin .ld-grid table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.ladderwin .ld-grid th { position: sticky; top: 0; z-index: 2; background: var(--lb-frame); color: var(--lb-text); border: 1px solid var(--lb-line); font: 600 calc(10px * var(--fs))/1.4 var(--ui); padding: 1px 3px; text-align: left; }
+.ladderwin .ld-grid th.c-bid { box-shadow: inset 0 -3px 0 var(--lb-bid); }
+.ladderwin .ld-grid th.c-ask { box-shadow: inset 0 -3px 0 var(--lb-ask); }
+.ladderwin .ld-grid .c-work { width: 19%; } .ladderwin .ld-grid .c-ltq { width: 11%; }
+.ladderwin .ld-grid .c-bid, .ladderwin .ld-grid .c-ask { width: 17%; }
+.ladderwin .ld-grid td { height: var(--lb-row); border: 1px solid var(--lb-rule); padding: 0 2px; font: calc(10.5px * var(--fs)) var(--mono); text-align: right; white-space: nowrap; overflow: hidden; }
+.ladderwin td.bid { background: var(--lb-bid); color: var(--lb-ink); font-weight: 600; }
+.ladderwin td.ask { background: var(--lb-ask); color: #fff; font-weight: 600; }
+.ladderwin td.bid.has-qty { background: var(--lb-bid-cell); }
+.ladderwin td.ask.has-qty { background: var(--lb-ask-cell); }
+.ladderwin td.price { text-align: center; font-weight: 600; background: var(--lb-price); }
+.ladderwin td.price.last-trade { background: var(--lb-last); }
+.ladderwin td.price.at-bid { color: var(--lb-bid-strong); }
+.ladderwin td.price.at-ask { color: var(--lb-ask-strong); }
+.ladderwin tr.mid-line > td { border-top: 2px solid #111; border-bottom: 2px solid #111; }
+.ladderwin tr.mid-line > td.price { background: #dcdcdc; font-weight: 700; }
+.ladderwin td.work { text-align: left; }
+.ladderwin td.work.buy { background: var(--lb-work-buy); color: #0b3a5c; font-weight: 700; }
+.ladderwin td.work.sell { background: var(--lb-work-sell); color: #5c1414; font-weight: 700; }
+.ladderwin td.work.held { background: #fff; color: #8a6100; font-style: italic; box-shadow: inset 0 0 0 2px #d9a520; }
+.ladderwin td.ltq { text-align: center; }
+.ladderwin td.ltq.print { background: var(--lb-traded); color: #fff; }
+.ladderwin td.work .lv { display: inline-block; font: 700 calc(8.5px * var(--fs))/1.25 var(--ui); padding: 0 3px; margin-right: 2px; border-radius: 2px; color: #fff; }
+.ladderwin .lv.tp { background: #2f7d3f; } .ladderwin .lv.sl { background: #b83232; }
+.ladderwin .lv.be { background: #555; } .ladderwin .lv.en { background: #3f7cb0; }
+.ladderwin .lv.band { background: #a8730a; } .ladderwin .lv.mean { background: #6b7280; }
+.ladderwin.algo-locked td.bid, .ladderwin.algo-locked td.ask { cursor: not-allowed; filter: grayscale(.8); opacity: .55; }
+.ladderwin .ld-counts { position: sticky; bottom: 0; display: flex; gap: 6px; padding: 1px 4px; background: var(--lb-bid); color: #fff; font: calc(10px * var(--fs)) var(--mono); z-index: 2; }
+
+.ladderwin .ld-footer { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 2px 6px 4px; background: var(--lb-frame); border-top: 1px solid var(--lb-line); font: calc(10px * var(--fs))/1.4 var(--ui); }
+.ladderwin .ld-feed.ok { color: var(--lb-traded); } .ladderwin .ld-feed.warn { color: #8a6b1f; font-weight: 600; } .ladderwin .ld-feed.bad { color: var(--lb-ask); font-weight: 700; }
+.ladderwin .ld-refresh { padding: 1px 6px; font-size: calc(11px * var(--fs)); }
+.ladderwin table.ld-book { flex: 1 1 100%; width: 100%; table-layout: fixed; border-collapse: collapse; font: calc(10px * var(--fs))/1.45 var(--mono); }
+.ladderwin table.ld-book th, .ladderwin table.ld-book td { padding: 0 3px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ladderwin table.ld-book th { color: var(--lb-muted); font-weight: 400; border-bottom: 1px solid var(--lb-line); }
+.ladderwin table.ld-book .l { text-align: left; width: 34%; }
+.ladderwin table.ld-book td.b { color: var(--lb-bid-strong); font-weight: 600; }
+.ladderwin table.ld-book td.a { color: var(--lb-ask-strong); font-weight: 600; }
+.ladderwin .ld-dirs { flex: 1 1 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ladderwin .ld-dirs span { text-align: center; padding: 1px 4px; font-weight: 700; border: 1px solid transparent; }
+.ladderwin .ld-hl { background: #e2f3e5; color: #2f7d3f; }
+.ladderwin .ld-lh { background: #f8e3e3; color: #a02828; }
+.ladderwin .ld-dirs span.armed { border-color: currentColor; box-shadow: 0 0 0 1px currentColor; }
+.ladderwin .ld-dirs b { font-family: var(--mono); font-weight: 600; margin-left: 4px; }
+.ladderwin .ld-pos { font: 600 calc(10.5px * var(--fs)) var(--mono); }
+.ladderwin .ld-pnl { font: 700 calc(10.5px * var(--fs)) var(--mono); }
+.ladderwin .ld-pnl.up { color: var(--lb-traded); } .ladderwin .ld-pnl.dn { color: var(--lb-down); }
+
+/* The slippage report: section heads inside the one table, and the round
+ * turn set apart. */
+.an-slip .an-slip-head td { font-weight: 600; color: var(--ink-mute); background: var(--frame-2); }
+.an-slip .an-slip-total td { font-weight: 600; }
+.an-slip td.dn { color: var(--ask); }
+.an-slip td.up { color: var(--good); }
+.an-slip-card h5 .an-slip-csv { float: right; font-size: calc(10px * var(--fs)); padding: 1px 6px; }
+
+/* LIVE: the Algo's orders go to the venue. Unmistakable on the taskbar. */
+#execution-toggle.live { background: linear-gradient(#c04141, #a32828); color: #fff; border-color: #7a1c1c; font-weight: 700; }
+
+.aw-tile-levels { font: 500 calc(9.5px * var(--fs))/1.3 var(--mono); color: var(--ink-mute); margin-top: 1px; }
+.aw-tile-levels.own { color: #7a3d9a; font-weight: 700; }
+.aw-tile-levels small { font-weight: 400; }
+
+/* The Algo switch — one per contract, on the ladder and the Algo window (the
+ * MT5 desk's): OFF / DRY RUN / PAPER / LIVE, one click to its menu. */
+.algo-switch { position: relative; display: inline-flex; margin-left: auto; }
+.algo-btn { font: 700 calc(10px * var(--fs))/1 var(--ui); letter-spacing: .4px; padding: 3px 7px; border-radius: 2px; border: 1px solid rgba(0,0,0,.3); cursor: pointer; color: #fff; background: #777; white-space: nowrap; }
+.algo-btn::after { content: ' \25BE'; font-weight: 400; }
+.algo-btn.off { background: #6b6b6b; }
+.algo-btn.dry { background: #b07a14; }
+.algo-btn.paper { background: #3f7cb0; }
+.algo-btn.live { background: #c0392b; }
+.algo-menu { position: absolute; top: calc(100% + 2px); right: 0; z-index: 20; display: flex; flex-direction: column; min-width: calc(190px * var(--fs)); background: #fff; border: 1px solid #888; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.algo-menu[hidden] { display: none; }
+.algo-menu button { text-align: left; font: 600 calc(11px * var(--fs))/1.3 var(--ui); padding: 5px 9px; border: 0; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; color: #222; }
+.algo-menu button:hover { background: #eef3fa; }
+.algo-menu button.live { color: #a02828; }
+.ladderwin .titlebar .algo-switch { margin-left: 6px; }
+.algowin .badgebar .algo-switch { margin-left: auto; }
+
+.toast.SIGNAL { border-left-color: #7a3d9a; } .toast.SIGNAL .kind { color: #5d2e86; }
+.toast.EXIT_SIGNAL { border-left-color: #b07a14; } .toast.EXIT_SIGNAL .kind { color: #7d5606; }
+/* A Signals-mode call: the ladder's FRAME flashes, never a layer over the prices. */
+@keyframes signal-flash { 0%, 60% { box-shadow: 0 0 0 3px #7a3d9a; } 100% { box-shadow: none; } }
+.win.signal-flash { animation: signal-flash 3s ease-out; }
+
+/* The taskbar holds still. It is right-aligned, so anything that changes
+ * width — the loop timer every second, a badge's word — pushed every button
+ * to its left sideways. Each changing item gets a fixed width and fixed-width
+ * digits, so a button is always where the hand left it. */
+#taskbar .stat, #taskbar .link, #taskbar .tk { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#loop-stat { display: inline-block; width: calc(108px * var(--fs)); text-align: left; overflow: hidden; }
+#text-size { display: inline-block; width: calc(54px * var(--fs)); text-align: center; }
+#link-badge { display: inline-block; min-width: calc(112px * var(--fs)); text-align: center; box-sizing: border-box; }
+#master-toggle { min-width: calc(86px * var(--fs)); }
+#execution-toggle { min-width: calc(118px * var(--fs)); }
+#sound-toggle { min-width: calc(76px * var(--fs)); }
+
+/* Depth: every level's size in the bands; the touch itself in bold. */
+.ladderwin td.bid.touch, .ladderwin td.ask.touch { font-weight: 800; }
+.ladderwin td.bid.has-qty:not(.touch) { background: #5aa7e2; }
+.ladderwin td.ask.has-qty:not(.touch) { background: #c23d3d; }
+.ladderwin .ld-depth { padding: 1px 6px; font-size: calc(11px * var(--fs)); }
+.ladderwin .ld-depth.on { background: #1f7ac2; color: #fff; border-color: #155a90; }
+
+/* The ladder on the Order tests page, sending the Algo's test orders (UAT). */
+.ladderwin .ld-lock.algo-test { background: #5b3a8c; }
+/* Embedded in the Order tests page: the page has its own navigation. */
+html.embed-uat .app-nav { display: none; }
+
+/* A close that did not happen: on the ladder, under the lock banner. */
+.ladderwin .ld-closealert { background: #fff0f0; color: #8d1f1f; border: 2px solid #b03030;
+  font: 700 calc(11px * var(--fs))/1.35 var(--ui); padding: 5px 8px; }
+.ladderwin .ld-closealert[hidden] { display: none; }

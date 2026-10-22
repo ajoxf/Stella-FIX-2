@@ -1,0 +1,29 @@
+# Review routing. Replace @CONTRIBUTOR with the contributor's GitHub handle.
+#
+# The arrangement is deliberately inverted: the contributor owns the seam and
+# is the expert on it, and the owner keeps the modules where a change reaches
+# money by another route.
+
+# Everything, by default.
+*                               @ajoxf
+
+# The FIX seam and its tests — the contributor's ground.
+/fixtrader/gateway.py           @ajoxf @CONTRIBUTOR
+/fixtrader/fake_gateway.py      @ajoxf @CONTRIBUTOR
+/tests/test_gateway_contract.py @ajoxf @CONTRIBUTOR
+/tests/test_fake_gateway.py     @ajoxf @CONTRIBUTOR
+/docs/FIX_NOTES.md              @ajoxf @CONTRIBUTOR
+
+# Order lifecycle: in scope, but this is where a bug reaches money.
+/fixtrader/executor.py          @ajoxf
+/fixtrader/engine.py            @ajoxf
+
+# The money arithmetic and the algo. A FIX change should not need these.
+/fixtrader/sizing.py            @ajoxf
+/fixtrader/costs.py             @ajoxf
+/fixtrader/stats.py             @ajoxf
+/fixtrader/signals.py           @ajoxf
+
+# The rules themselves.
+/CLAUDE.md                      @ajoxf
+/BUILD_PROMPT.md                @ajoxf

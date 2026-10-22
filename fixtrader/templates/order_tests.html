@@ -1,0 +1,142 @@
+{% extends "_page.html" %}
+{% block title %}Order tests · Nexus FIX{% endblock %}
+{% block heading %}Order tests{% endblock %}
+{% block crumb %}<span id="ot-crumb">test every order flow on TT UAT</span>{% endblock %}
+{% block actions %}
+  <span id="ot-exec" class="pill">&mdash;</span>
+{% endblock %}
+
+{% block content %}
+<p id="ot-banner" class="ot-banner"></p>
+
+<div class="ot-steps">
+  <!-- 1 -->
+  <section class="card ot-step">
+    <h5><span class="n">1</span> Pick a contract</h5>
+    <div class="cb">
+      <select id="ot-contract" class="ot-big"></select>
+      <p class="ot-hint">It must be flat — nothing open, nothing working — with a bid and an offer.</p>
+      <details class="ot-opts"><summary>Options</summary>
+        <label class="f"><span>Quantity per order</span><input type="number" id="ot-qty" min="1" step="1" value="1"></label>
+        <label class="f"><span>Ticks away<small>for orders that must not fill</small></span><input type="number" id="ot-away" min="2" step="1" value="20"></label>
+        <label class="f"><span>Wait up to (s)<small>for a seller at the bid</small></span><input type="number" id="ot-wait" min="10" step="10" value="120"></label>
+        <label class="f"><span>Wait for the market<small>also run the "wait for a seller" checks — up to the wait above</small></span><input type="checkbox" id="ot-hits" class="chk"></label>
+      </details>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="card ot-step">
+    <h5><span class="n">2</span> Check automatically <span class="note" id="ot-run-note"></span></h5>
+    <div class="cb">
+      <p class="ot-hint">Press <b>Check</b> on a group: the program does each step below with real orders on TT UAT
+        — exactly as you would on the ladder — and ticks it when TT answers as it should. It ends flat.</p>
+      <div class="ot-groups">
+        <div class="ot-group" data-kind="manual" data-type="market">
+          <div class="ot-ghead"><span><b>Manual · Market orders</b><em>You send it — fills straight away at the best price.</em></span>
+            <button class="btn ot-check" type="button">Check</button></div>
+          <ul class="ot-flows"></ul>
+        </div>
+        <div class="ot-group" data-kind="manual" data-type="limit">
+          <div class="ot-ghead"><span><b>Manual · Limit orders</b><em>You send it at your price — it waits until the market gets there.</em></span>
+            <button class="btn ot-check" type="button">Check</button></div>
+          <ul class="ot-flows"></ul>
+        </div>
+        <div class="ot-group" data-kind="algo" data-type="market">
+          <div class="ot-ghead"><span><b>Algo · Market orders</b><em>The Algo sends it, as it would on a signal.</em></span>
+            <button class="btn ot-check" type="button">Check</button></div>
+          <ul class="ot-flows"></ul>
+        </div>
+        <div class="ot-group" data-kind="algo" data-type="limit">
+          <div class="ot-ghead"><span><b>Algo · Limit orders</b><em>The Algo sends it at a price — it waits in the book.</em></span>
+            <button class="btn ot-check" type="button">Check</button></div>
+          <ul class="ot-flows"></ul>
+        </div>
+      </div>
+      <p id="ot-pre" class="ot-pre" hidden></p>
+      <div class="ot-go"><button id="ot-stop" class="btn" type="button" disabled>Stop</button>
+        <button id="ot-clear" class="btn" type="button">Clear results</button>
+        <details class="ot-opts"><summary>Details</summary><pre id="ot-log" class="ot-log"></pre></details></div>
+    </div>
+  </section>
+</div>
+
+<!-- 3 -->
+<section class="card ot-try">
+  <h5><span class="n">3</span> Try it yourself — the ladder, as you will trade it</h5>
+  <div class="cb">
+    <div class="ot-how">
+      <div><b>By hand</b> — Algo switch on <b>OFF</b> (or SIGNALS). BUY / SELL, or click a price: Bids buys,
+        Asks sells. Cancel from Working orders. CLOSE ALL, Close @ LMT.</div>
+      <div><b>As the Algo</b> — Algo switch on <b>UAT</b>. BUY / SELL, or a price click, makes the Algo send its
+        order to TT UAT now, as on a signal; its take-profit and stop loss then manage it.</div>
+    </div>
+    <p class="ot-hint"><b>Tried it yourself?</b> Tick it off:</p>
+    <div id="ot-tried" class="ot-tried"></div>
+    <iframe id="ot-desk" class="ot-desk" title="Ladder, Algo window and Trading Monitor"></iframe>
+  </div>
+</section>
+
+<style>
+  .ot-banner { margin: 0 0 8px; padding: 7px 10px; border: 1px solid var(--line-soft); background: #fff;
+               font-size: calc(11.5px * var(--fs)); }
+  .ot-banner.uat { border-color: #c9a227; background: #fff8e0; }
+  .ot-banner.prod { border-color: #8d3a3a; background: #f6e2e2; color: #6b1d1d; font-weight: 600; }
+  .ot-banner.off { background: #f1f1f1; }
+  .ot-steps { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 8px; margin-bottom: 8px; }
+  @media (max-width: 900px) { .ot-steps { grid-template-columns: 1fr; } }
+  .card h5 .n { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center;
+                border-radius: 50%; background: #2c3e50; color: #fff; margin-right: 6px; font-size: 11px; }
+  .ot-big { font-size: calc(13px * var(--fs)); padding: 4px; width: 100%; }
+  .ot-hint { margin: 0; color: #4a4f57; font-size: calc(11px * var(--fs)); }
+  .ot-opts summary { cursor: pointer; color: #1f5fa8; font-size: calc(11px * var(--fs)); }
+  .ot-opts .f { margin-top: 6px; }
+  .ot-go { display: flex; gap: 8px; }
+  .ot-go .btn { font-size: calc(12px * var(--fs)); padding: 6px 12px; }
+  .ot-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 1200px) { .ot-groups { grid-template-columns: 1fr; } }
+  .ot-group { border: 1px solid var(--line-soft); padding: 6px 8px; background: #fcfcfc; }
+  .ot-ghead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
+              font-size: calc(12px * var(--fs)); }
+  .ot-ghead .btn { font-size: calc(11.5px * var(--fs)); padding: 4px 14px; }
+  .ot-group[data-kind="algo"] .ot-ghead b { color: #5b3a8c; }
+  .ot-pre { margin: 0; padding: 5px 8px; border: 1px solid #b03030; background: #f6e2e2; color: #6b1d1d;
+            font-size: calc(11.5px * var(--fs)); }
+  .ot-go { display: flex; gap: 10px; align-items: flex-start; }
+  .ot-go details { flex: 1; }
+  .ot-flows { list-style: none; margin: 0; padding: 0; }
+  .ot-ghead em { display: block; font-style: normal; color: #6b7078; font-size: calc(10.5px * var(--fs)); }
+  .ot-flows li b { font-weight: 600; }
+  .ot-flows li .exp { display: block; color: #5d636b; font-size: calc(10.5px * var(--fs)); }
+  .ot-flows li.PASS small { color: #177349; }
+  .ot-flows li.FAIL small { color: #b03030; }
+  .ot-flows li.optional { color: #9a9ea6; }
+  .ot-flows li.optional::after { content: 'Skipped unless "Wait for the market" is ticked in Options (step 1).'; grid-column: 2;
+                                 font-size: calc(9.5px * var(--fs)); color: #9a9ea6; }
+  .ot-flows li { break-inside: avoid; padding: 4px 0; border-bottom: 1px solid #eee;
+                 font-size: calc(11.5px * var(--fs)); display: grid; grid-template-columns: 22px 1fr; }
+  .ot-flows li .st { font-weight: 700; }
+  .ot-flows li.PASS .st { color: #177349; }
+  .ot-flows li.FAIL .st { color: #b03030; }
+  .ot-flows li.SKIP .st { color: #9a6b00; }
+  .ot-flows li.RUNNING .st { color: #1f5fa8; }
+  .ot-flows li small { grid-column: 2; display: block; color: #6b7078; font-family: var(--mono);
+                       font-size: calc(10px * var(--fs)); word-break: break-word; }
+  .ot-flows li.group { border: 0; font: 600 calc(9.5px * var(--fs))/1 var(--mono); letter-spacing: .08em;
+                       color: #6b7078; padding-top: 6px; display: block; }
+  .ot-how { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: calc(11.5px * var(--fs)); }
+  .ot-how > div { padding: 6px 8px; border: 1px solid var(--line-soft); background: #fafafa; }
+  .ot-tried { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 14px; font-size: calc(11px * var(--fs)); }
+  @media (max-width: 1100px) { .ot-tried { grid-template-columns: 1fr 1fr; } }
+  .ot-tried > div { display: flex; flex-direction: column; gap: 2px; }
+  .ot-tried b { color: #4a4f57; }
+  .ot-tried label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .ot-desk { width: 100%; height: 860px; border: 1px solid var(--line-soft); background: #8a93a3; }
+  .ot-log { margin: 4px 0 0; max-height: 220px; overflow: auto; font: calc(10.5px * var(--fs))/1.4 var(--mono);
+            background: #fafafa; border: 1px solid var(--line-soft); padding: 6px; white-space: pre-wrap; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='order_tests.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Account | Nexus FIX</title><link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}"><link rel="stylesheet" href="{{ url_for('static', filename='connection.css') }}?v={{ asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='instruments.css') }}?v={{ asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='fix_pages.css') }}?v={{ asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='app_nav.css') }}?v={{ asset_version }}"><link rel="stylesheet" href="{{ url_for('static', filename='monitor.css') }}?v={{ asset_version }}"></head>
+<body>{% include '_topnav.html' %}
+<main class="tmon">
+<!-- The Trading Monitor, as on the MT5 desk: every position, working order,
+     fill and closed trade this system holds — the Algo's and the manual
+     ticket's — in one place, with what TT says beside what this book holds. -->
+<div class="heading"><div><p class="eyebrow" id="acct-eyebrow">ACCOUNT · POSITIONS &amp; P&amp;L</p><h1>Account</h1><p class="subtitle">What is open, what is working, what filled and what it cost — the Algo's book and the manual ticket's, with TT's own positions beside them.</p></div></div>
+<p id="acct-banner" class="acct-banner hidden" role="alert"></p>
+<section class="panel monitor">
+  <div class="mon-tabs" role="tablist">
+    <button type="button" data-tab="positions" class="on">Positions <sup class="n-positions"></sup></button>
+        <button type="button" data-tab="orders">Working Orders <sup class="n-orders"></sup></button>
+        <button type="button" data-tab="fills">Fills</button>
+        <button type="button" data-tab="slippage">Slippage</button>
+        <button type="button" data-tab="accounts">Accounts</button>
+        <button type="button" data-tab="reconcile">Reconciler</button>
+        <button type="button" data-tab="analysis">Analysis</button>
+      </div>
+  <div class="mon-pane"></div>
+  <div class="mon-note"></div>
+</section>
+</main>
+<!-- One shared modal; never a native confirm(). -->
+<dialog id="acct-modal"><h2 id="acct-modal-title"></h2><p id="acct-modal-body"></p><div class="actions"><button id="acct-modal-cancel" type="button">Cancel</button><button id="acct-modal-ok" type="button" class="danger-btn"></button></div></dialog>
+<script src="{{ url_for('static', filename='monitor.js') }}?v={{ asset_version }}"></script><script>TradingMonitor(document.querySelector('main.tmon')).start();</script></body></html>

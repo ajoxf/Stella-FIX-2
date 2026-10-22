@@ -1,0 +1,66 @@
+name: tests
+
+# The suite is the gate. A red branch is not ready for review, and a PROD
+# venue is never run without it.
+# Deliberately unfiltered: this repository's default branch is not called
+# `main`, and a filter naming a branch that does not exist would leave every
+# pull request with no checks at all — which looks exactly like passing.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # The browser suite reads `pageerror`, which is the only way to see a
+      # ReferenceError that aborts a script block and silently unregisters a
+      # handler. It skips cleanly where no browser is installed, so it is
+      # installed here on purpose.
+      - name: Install the browser
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run the suite
+        run: pytest tests/ -q
+
+      # Run separately as well, so the handover suite's result is visible on
+      # its own line rather than buried in the total.
+      - name: Gateway contract (simulator)
+        run: pytest tests/test_gateway_contract.py -q
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nothing secret in the tree
+        run: |
+          # Credentials live in .env and nowhere else. This is a coarse net,
+          # deliberately: it is cheaper to explain a false positive than to
+          # find a password in the history a year later.
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::.env is tracked. It must never be committed."
+            exit 1
+          fi
+          if grep -rInE '(password|passwd|secret|api[_-]?key)\s*[:=]\s*["'"'"'][^"'"'"']{6,}' \
+               --include='*.py' --include='*.json' --include='*.js' \
+               --include='*.yml' --include='*.md' . \
+             | grep -vE 'password_env|has_password|password_set|PASSWORD_ENV|<name of|placeholder|not set'; then
+            echo "::error::something that looks like a credential is committed"
+            exit 1
+          fi
+          echo "clean"
