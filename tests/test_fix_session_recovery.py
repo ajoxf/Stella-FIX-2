@@ -172,6 +172,7 @@ def test_if_the_resend_never_completes_the_session_goes_ahead_after_a_short_wait
     tt.push(4, [('35', '0')])
     settle()
     assert s.ready()
+    gw.audit.pending.join()                          # the log is written in the background
     rows = gw.audit.read(50, '', 'Resend from Stellar not complete')
     assert rows
 
@@ -214,5 +215,6 @@ def test_a_session_reject_is_logged_with_its_reason_in_words(session):
     tt.push(2, [('35', '3'), ('45', '5'), ('371', '77'), ('372', 'D'), ('373', '5'),
                 ('58', 'Bad value')])
     settle()
+    gw.audit.pending.join()                          # the log is written in the background
     rows = gw.audit.read(50, '', 'Reject')
     assert any('incorrect value' in str(r.get('details')) for r in rows)
