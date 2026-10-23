@@ -35,9 +35,18 @@ that fails safe, and each is worth confirming on Stellar UAT:
 7. **Trade CumQty / OrdStatus.** The examples' trades say 14=0 (and a
    strategy fill 39=0 with 151=0): the desk sums LastQty itself. Confirm a
    partial fill reports LeavesQty (151) reliably.
-8. **CME SenderSubID (50).** The spec says Stellar takes it from
-   ExchangeClearingAccount1 (452=1000), else the user name: set the clearing
-   account on the venue.
+8. **CME SenderSubID (50) and SenderLocationID (142).** The 2025 spec says
+   Stellar takes both from ExchangeClearingAccount1 (452=1000), written
+   `SenderSubID:SenderLocationID`, else 50 is the user name: set the clearing
+   account on the venue that way.
+9. **Mass Order Status with nothing working.** The spec shows the answer for
+   orders that exist (911 / 912=Y on the last). What does Stellar send when
+   there are none? Until it is known, a sweep that sent an AF and heard
+   nothing FAILS, naming the orders it asked about — never read as done.
+10. **Security List Request combinations.** The spec marks Symbol (55) and
+   CFI (461) required; the conformance script asks for a request by 461
+   alone, 55 alone, 207 alone and 207 + 55. The search sends what is given;
+   Stellar's answer to each is shown as it comes.
 
 ## Open questions for Orient (from the TT desk)
 

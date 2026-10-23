@@ -15,7 +15,7 @@
     <div class="heading"><div><p class="eyebrow">SESSION CONTROL</p><h1>FIX connection dashboard</h1><p class="subtitle">Manage your Stellar Order Router and Market Data connections in one place.</p></div><span id="engine-health" class="health">Checking engine…</span></div>
     <section class="summary" aria-label="Connection controls">
       <div><div id="overall-state" class="overall">Checking connection…</div><p id="overall-detail">Waiting for the engine's latest status.</p></div>
-      <div class="actions"><button id="connect" class="primary" disabled>Connect FIX</button><button id="reconnect" disabled>Reconnect</button><button id="disconnect" disabled>Disconnect</button><button id="reset_sequences" disabled title="Only when Stellar has reset its side of the Order Router">Reset sequence numbers</button></div>
+      <div class="actions"><button id="connect" class="primary" disabled>Connect FIX</button><button id="reconnect" disabled>Reconnect</button><button id="disconnect" disabled>Disconnect</button><button id="reset_sequences" disabled title="Only when Stellar has reset its side of the Order Router">Reset sequence numbers</button><button id="skip_sequence" disabled title="Stellar's conformance test of a GapFill: the next logon goes 10 numbers ahead, Stellar asks for them, the gap is filled">Skip ahead +10 (gap-fill test)</button></div>
     </section>
     <p id="action-result" class="feedback" role="status" aria-live="polite"></p>
     <div id="sessions" class="sessions" aria-label="FIX sessions"></div>

@@ -299,14 +299,19 @@ of their rules is met.
   the next logon what was sent while the program was down. Then, after each
   logon — once the previous run's orders are adopted — every order of ours
   still recorded as working is asked about with an Order Status Request (H)
-  (`FixGateway.recover_missed`, the order status sweep): a cancel or reject
+  (`FixGateway.recover_missed`, the order status sweep) — and, while one of
+  ours has no OrderID heard, ONE Mass Order Status Request (AF), whose answer
+  (584, ending 912=Y; Stellar's example says 150=5) is a STATUS, never a
+  replace, and gives that order its OrderID: a cancel or reject
   is applied, a CumQty this book never saw a trade for is SAID and never
   booked without a price, and no answer in `RECOVERY_TIMEOUT_SEC` is FAILED,
   naming the orders, never read as done. A fill already booked is never booked
   again (`Database.has_fill`, the manual fills table, the router's ExecIDs);
   an order is never moved back from a final state. Algo ENTRIES wait while it
   runs; exits never do. **Reset sequence numbers** (Connection page) is for
-  when Stellar has reset its side, and only then.
+  when Stellar has reset its side, and only then; **Skip ahead +10** is for
+  Stellar's gap-fill conformance test only. Our Logout waits for Stellar's
+  (`LOGOUT_WAIT_SEC`): answered, it is a clean logout, not an error.
 - **What an Execution Report IS is decided before anything is booked**
   (`stellar_exec.kind`, both books): a strategy's trade comes as the strategy
   (442=3) AND one report per LEG (442=2) at the leg's price, with the same

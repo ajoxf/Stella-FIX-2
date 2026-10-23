@@ -18,6 +18,15 @@ From the Stellar FIX Order Router specification (sections 2.16, 3 and 5):
   prices that are not the spread's. Only the strategy is booked.
 - ExecID (17) is unique for each execution report sent ("not guaranteed to
   be sequential"): a fill already seen is known by it.
+- A Mass Order Status Request (AF, spec 2.19 — added in the 2025 revision)
+  is answered with one report per order carrying the request's
+  MassStatusReqID (584), TotNumReports (911) and LastRptRequested (912=Y on
+  the last). Stellar's own example answers with 150=5: read as a REPLACE it
+  would rewrite the order from a status answer. Any report carrying 584 is a
+  STATUS, unless it is a trade, a bust or a correction.
+- TradeID (1003, spec 3.4 — 2025): the raw exchange trade id. A trade
+  correction or cancellation carries the TradeID of the original trade, so
+  it is named beside the 527 when a bust or correction is said.
 - OrdRejReason (103) on a submit rejection: 1 unknown symbol, 3 order exceeds
   limit, 13 incorrect quantity, 99 other — Stellar's Text (58) says the rest.
 
@@ -33,7 +42,7 @@ def kind(f: Dict[str, str]) -> Optional[str]:
     (a change to an earlier fill: say it, do not book it), STATUS (a status
     answer, a hold or an unhold: not a fill), or None (no fill in it)."""
     et = f.get('150', '')
-    if et in ('I', 'D', '9'):
+    if et in ('I', 'D', '9') or (f.get('584') and et not in ('F', 'H', 'G')):
         return STATUS
     if et == 'H':
         return BUST
@@ -50,6 +59,12 @@ def kind(f: Dict[str, str]) -> Optional[str]:
     if f.get('442') == '2':
         return LEG
     return FILL
+
+
+def is_status_answer(f: Dict[str, str]) -> bool:
+    """An answer to an Order Status (H, 790) or Mass Order Status (AF, 584)
+    request: Stellar's view of the order, not an event on it."""
+    return f.get('150') == 'I' or bool(f.get('584') and kind(f) == STATUS)
 
 
 def exec_key(f: Dict[str, str]) -> str:
@@ -76,6 +91,8 @@ def reject_reason(f: Dict[str, str], text: str = '') -> str:
 
 def correction_text(f: Dict[str, str], what: str) -> str:
     ref = f.get('527') or f.get('19') or f.get('17') or '?'
+    if f.get('1003') and f['1003'] != ref:
+        ref += f" (exchange trade {f['1003']})"
     word = 'CANCELLED (busted)' if what == BUST else 'CORRECTED'
     return (f"Stellar reports trade {ref} {word}"
             + (f": {f['58']}" if f.get('58') else '')

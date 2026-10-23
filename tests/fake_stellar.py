@@ -99,9 +99,22 @@ class Exchange:
         self.or_sessions = {}
         #: Execution Reports lost on the way (numbered, never delivered).
         self.drop_reports = 0
+        #: Execution Reports never sent at all (not even numbered): an
+        #: acknowledgement whose OrderID the program never hears.
+        self.swallow_reports = 0
         #: Order Status Requests (H) answered — or, when silent, not.
         self.status_requests = []
         self.status_silent = False
+        #: Mass Order Status Requests (AF) received.
+        self.mass_requests = []
+        #: Logouts received ((session kind, text)); Stellar answers each one
+        #: with its own Logout unless silent.
+        self.logouts = []
+        self.logout_silent = False
+        #: ResendRequests this fake sent for numbers we skipped, and the
+        #: GapFills that answered them ((comp, seq, new seq)).
+        self.resend_requests_sent = []
+        self.gap_fills = []
         #: Security List Requests (x) received.
         self.list_requests = []
 
@@ -122,7 +135,8 @@ class Exchange:
         self.list_requests.append(dict(f))
         want_cfi = (f.get('461') or 'F')[:1]
         found = [(sid, b) for sid, b in self.books.items()
-                 if b['symbol'] == f.get('55') and b['cfi'][:1] == want_cfi
+                 if (not f.get('55') or b['symbol'] == f['55'])
+                 and (not f.get('461') or b['cfi'][:1] == want_cfi)
                  and (not f.get('207') or b['exchange'] == f['207'])]
         fields = [('35', 'y')]
         if not found:
@@ -202,6 +216,9 @@ class Exchange:
         if peer is None:
             self.or_record(None, fields)              # kept for a resend
             return
+        if self.swallow_reports > 0 and fields[0][1] in ('8', '9'):
+            self.swallow_reports -= 1                 # never numbered, never sent
+            return
         if self.drop_reports > 0 and fields[0][1] in ('8', '9'):
             self.drop_reports -= 1
             self.or_record(peer.comp, fields)         # numbered, never delivered
@@ -249,7 +266,7 @@ class Exchange:
     def on_order(self, f, raw):
         with self.lock:
             kind = f['35']
-            if kind in ('D', 'AB', 'F', 'G', 'AC', 'H'):
+            if kind in ('D', 'AB', 'F', 'G', 'AC', 'H', 'AF'):
                 self.orders_in.append(dict(f, raw=raw))
             if kind in ('D', 'AB'):
                 self._new(f, raw)
@@ -259,6 +276,8 @@ class Exchange:
                 self._replace(f)
             elif kind == 'H':
                 self._status(f)
+            elif kind == 'AF':
+                self._mass_status(f)
 
     def _instrument(self, f, raw):
         legs = legs_of(raw)
@@ -369,6 +388,29 @@ class Exchange:
         self.deliver(fields)
 
 
+    def _mass_status(self, f):
+        """A Mass Order Status Request (AF): one report per order (all, or
+        one product's with 585=3 / 55), each carrying 584, 911 and 912 — and,
+        as in Stellar's own example (8.20), ExecType 5."""
+        self.mass_requests.append(dict(f))
+        if self.status_silent:
+            return
+        orders = [o for o in self.orders.values() if o['oid'] in self.resting
+                  and (f.get('585') != '3' or o['symbol'] == f.get('55'))]
+        for n, order in enumerate(orders, 1):
+            self.deliver(self._base(order) + [
+                ('11', order['report_id']), ('17', '0'), ('150', '5'), ('39', '0'),
+                ('14', str(order['cum'])), ('151', str(order['qty'] - order['cum'])),
+                ('584', f.get('584', '')), ('911', str(len(orders))),
+                ('912', 'Y' if n == len(orders) else 'N')])
+        if not orders:
+            # Not in Stellar's spec: what it answers when nothing is working
+            # is an open question (docs/FIX_NOTES.md). This fake says so in one
+            # report with 911=0, so the sweep can finish.
+            self.deliver([('35', '8'), ('17', '0'), ('150', 'I'), ('39', '0'),
+                          ('584', f.get('584', '')), ('911', '0'), ('912', 'Y')])
+
+
 class Peer:
     """One FIX connection to the exchange: the Order Router or Market Data."""
 
@@ -376,6 +418,7 @@ class Peer:
         self.exchange = exchange
         self.port = port
         self.received = []
+        self.logons = []
         self.seq = 0               # Market Data's own numbering
         self.comp = None
         self.kind = None
@@ -453,13 +496,38 @@ class Peer:
         kind = f['35']
         if kind == 'A':
             self.kind = 'MD' if f['49'].endswith('_MD') or f['49'].startswith('MARKET') else 'OR'
+            gap = None
             if self.kind == 'OR':
                 Exchange._last_or_comp = f['49']
                 session = self.exchange.or_sessions.setdefault(f['49'], {'seq': 0, 'sent': {}})
                 if f.get('141') == 'Y':
                     session['seq'], session['sent'] = 0, {}
+                    session['in_expected'] = 1
+                expected = session.get('in_expected', 1)
+                seq = int(f.get('34') or 0)
+                if seq > expected:
+                    gap = expected                 # numbers we never received
+                session['in_expected'] = seq + 1
+            self.logons.append(dict(f))
             self.reply([('35', 'A'), ('98', '0'), ('108', '30')]
                        + ([('141', 'Y')] if f.get('141') == 'Y' else []))
+            if gap is not None:
+                # As Stellar would: ask for what we skipped (answered by a GapFill).
+                self.exchange.resend_requests_sent.append((f['49'], gap, seq - 1))
+                self.reply([('35', '2'), ('7', str(gap)), ('16', '0')])
+            return
+        if self.kind == 'OR' and f.get('34', '').isdigit():
+            session = self.exchange.or_sessions.get(f['49'])
+            if session is not None:
+                if kind == '4' and f.get('123') == 'Y':
+                    self.exchange.gap_fills.append((f['49'], int(f['34']), int(f.get('36') or 0)))
+                    session['in_expected'] = int(f.get('36') or 0)
+                elif f.get('43') != 'Y':
+                    session['in_expected'] = int(f['34']) + 1
+        if kind == '5':
+            self.exchange.logouts.append((self.kind, f.get('58', '')))
+            if not self.exchange.logout_silent:
+                self.reply([('35', '5'), ('58', 'Logout confirmed')])
             return
         if kind == '2' and self.kind == 'OR':
             self.resend(int(f.get('7', '1')), int(f.get('16', '0')))

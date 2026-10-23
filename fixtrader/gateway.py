@@ -43,6 +43,10 @@ RECOVERY_SESSION = 'Order Router'
 #: How long Stellar has to answer every Order Status Request of the sweep
 #: before it is reported FAILED.
 RECOVERY_TIMEOUT_SEC = 60.0
+#: How long a client-initiated Logout waits for Stellar's own Logout before
+#: the socket is closed anyway (Stellar's conformance test: "Client initiates
+#: Logout" — a clean logout is one Stellar answered).
+LOGOUT_WAIT_SEC = 3.0
 
 
 @runtime_checkable
@@ -197,7 +201,7 @@ class FixGateway:
                     return
             for name, cfg in configs.items():
                 cfg['allowed_messages'] = (('x', 'V') if name == 'Market Data'
-                                           else ('D', 'AB', 'F', 'G', 'AC', 'H'))
+                                           else ('D', 'AB', 'F', 'G', 'AC', 'H', 'AF'))
                 existing = self._sessions.get(name)
                 if existing is not None:
                     if existing.is_running():
@@ -243,6 +247,34 @@ class FixGateway:
                              details={'next_out': 1, 'next_in': 1})
             return {'ok': True}
 
+    def skip_sequence(self, by: int = 10) -> Dict[str, Any]:
+        """Raise the Order Router's NEXT outgoing number by `by` — for
+        Stellar's conformance test of a GapFill only: "Client disconnects.
+        Client increases outgoing message sequence number. Client logs in.
+        FIX gateway submits resend request. Client sends a gap fill."
+        Stellar's ResendRequest for the skipped numbers is answered with a
+        SequenceReset-GapFill, as every ResendRequest is: nothing is lost,
+        nothing resent. Refused while the session is up."""
+        by = int(by)
+        if not 1 <= by <= 1000:
+            return {'ok': False, 'error': 'Skip between 1 and 1000 numbers.'}
+        with self._lock:
+            s = self._sessions.get('Order Routing')
+            if s is not None and s.is_running():
+                return {'ok': False, 'error': 'Disconnect the Order Router first.'}
+            key = self._sequence_key()
+            saved = self.sequences.load(key)
+            before = int(saved.get('out_seq') or 0)
+            self.sequences.save(key, out_seq=before + by)
+            self.audit.write(level='WARNING', category='FIX Session',
+                             session='Order Routing', direction='LOCAL',
+                             event='Outgoing sequence skipped ahead', sequence='',
+                             details={'next_out_was': before + 1, 'next_out': before + by + 1})
+            return {'ok': True, 'next_out': before + by + 1,
+                    'text': f'The next Order Router logon goes as {before + by + 1} '
+                            f'(was {before + 1}): Stellar should ask for the gap, and '
+                            f'it is answered with a GapFill.'}
+
     def _sequence_key(self) -> str:
         v = self.venue
         return f"{v.sender_comp_id}->{v.target_comp_id or 'STELLAR'}@{v.host}:{v.port}"
@@ -261,7 +293,12 @@ class FixGateway:
                        now: Optional[datetime] = None) -> Dict[str, Any]:
         """Ask Stellar for the state of every order of ours still recorded as
         working — the Algo's (adopted from the last run or sent this one)
-        and the manual tickets — with an Order Status Request (H) each.
+        and the manual tickets — with an Order Status Request (H) each,
+        by its OrderID. An order of ours whose OrderID was never heard (its
+        acknowledgement lost) cannot be asked about by H, nor cancelled:
+        while there is one, ONE Mass Order Status Request (AF, 585=7 — all
+        orders) goes too, and Stellar's answer names it by its ClOrdID with
+        its OrderID. That answer ends at the report marked 912=Y.
 
         What Stellar sent while the line was down comes back by itself: the
         Order Router keeps its sequence numbers, so Stellar is asked to
@@ -276,9 +313,11 @@ class FixGateway:
             if session is None or session.state.status != 'CONNECTED':
                 return {'ok': False, 'error': 'The Order Router is not connected.'}
             requests = self.algo.status_targets() + self.terminal.status_targets()
+            unheard = self.algo.unheard_orders() + self.terminal.unheard_orders()
             self.recovery = {'state': 'RUNNING', 'mode': 'ORDER_STATUS',
-                             'text': f'Asking Stellar for the status of {len(requests)} '
-                                     f'order(s) of ours recorded as working.',
+                             'text': f'Asking Stellar for the status of '
+                                     f'{len(requests) + len(unheard)} order(s) of ours '
+                                     f'recorded as working.',
                              'replayed': 0, 'started': now.isoformat(),
                              'finished': None, 'note': None}
             self._sweep = {'waiting': {}, 'started': time.monotonic(), 'unanswered': []}
@@ -292,6 +331,16 @@ class FixGateway:
                 except Exception as e:                       # noqa: BLE001
                     self._sweep['unanswered'].append(
                         f"{target['clordid']}: not asked ({self._redact(str(e))})")
+            if unheard:
+                req = 'MS-' + uuid.uuid4().hex[:12]
+                names = ', '.join(unheard)
+                try:
+                    session.send('AF', [('584', req), ('585', '7'), ('60', fix_timestamp())])
+                    self._sweep['waiting'][req] = {
+                        'clordid': f'{names} (no OrderID heard; asked by Mass Order Status)'}
+                except Exception as e:                       # noqa: BLE001
+                    self._sweep['unanswered'].append(
+                        f"{names}: not asked ({self._redact(str(e))})")
             self._sweep_check()
             return {'ok': True, 'text': self.recovery['text']}
 
@@ -384,7 +433,7 @@ class FixGateway:
         fields = parse_fix_message(raw)
         category = ('Market Data' if msg_type in ('x', 'y', 'f', 'V', 'W', 'X', 'Y')
                     else 'Executions' if msg_type in ('8', '9')
-                    else 'Orders' if msg_type in ('D', 'F', 'G', 'AB', 'AC', 'H')
+                    else 'Orders' if msg_type in ('D', 'F', 'G', 'AB', 'AC', 'H', 'AF')
                     else 'FIX Session')
         details = {key: fields.get(tag) for key, tag in {
             'instrument': '55', 'security_id': '48', 'client_order_id': '11',
@@ -574,9 +623,10 @@ class FixGateway:
         return self.algo.adopt(row)
 
     def orders(self):
-        # Stellar has no "every working order" request (no Order Mass Status
-        # Request): unknown, which is NOT "none". Our own are swept by their
-        # recorded ids.
+        # Unknown, which is NOT "none". Our own orders are swept by their
+        # recorded ids (H), and by Mass Order Status (AF) only for one whose
+        # OrderID was never heard: an AF answer lists every order on the
+        # login, and the desk touches nothing it did not send.
         return None
 
     def positions(self):
@@ -705,6 +755,10 @@ class NativeFixSession:
         self.on_market_data_reject = on_market_data_reject
         self.socket = None
         self.stop_event = threading.Event()
+        #: Set while OUR Logout waits for Stellar's: its Logout then is the
+        #: answer, not a refusal.
+        self.logging_out = False
+        self.logout_answered = threading.Event()
         self.send_lock = threading.Lock()
         self.last_send_monotonic = 0.0
         #: Messages Stellar sent AHEAD of a gap, held until the gap is filled
@@ -771,12 +825,24 @@ class NativeFixSession:
         return self.thread.is_alive() and not self.stop_event.is_set()
 
     def stop(self):
+        """A client-initiated Logout: 35=5 goes, Stellar's own Logout is
+        waited for (`LOGOUT_WAIT_SEC`), then the socket is closed. A session
+        that never logged on is simply closed."""
+        logged_on = (self.socket is not None and self.state.status == "CONNECTED"
+                     and not self.stop_event.is_set())
+        try:
+            if logged_on:
+                self.logging_out = True
+                self.send("5", [("58", "Client disconnect")])
+                if self.thread.is_alive() and threading.current_thread() is not self.thread:
+                    self.logout_answered.wait(LOGOUT_WAIT_SEC)
+        except (OSError, ConnectionError, RuntimeError):
+            pass
         self.stop_event.set()
         try:
             if self.socket:
-                self.send("5", [("58", "Client disconnect")])
                 self.socket.close()
-        except (OSError, ConnectionError):
+        except OSError:
             pass
 
     def _header(self, msg_type, seq):
@@ -1074,6 +1140,12 @@ class NativeFixSession:
             if self.logon_monotonic is None or not self.pending:
                 self.logon_monotonic = time.monotonic()
             self._fallback_said = False
+        elif msg_type == "5" and self.logging_out:
+            # Stellar's answer to our Logout: a clean logout, not an error.
+            with self.state.lock:
+                self.state.status, self.state.error = "DISCONNECTED", ""
+            self.logout_answered.set()
+            self.stop_event.set()
         elif msg_type == "5":
             with self.state.lock:
                 self.state.status = "ERROR"
@@ -1481,6 +1553,13 @@ class AlgoOrderRouter:
                 self.by_order_id[vo.venue_id] = clordid
             return True
 
+    def unheard_orders(self) -> List[str]:
+        """Algo orders not in a final state whose OrderID Stellar never gave:
+        asked about by Mass Order Status in the sweep."""
+        with self.lock:
+            return [rec['current'] for rec in self.orders.values()
+                    if not rec['order'].state.is_done and not rec['order'].venue_id]
+
     def status_targets(self) -> List[Dict[str, Any]]:
         """Every Algo order not in a final state that Stellar can be asked
         about (it has an OrderID) — for the sweep after a logon."""
@@ -1506,6 +1585,9 @@ class AlgoOrderRouter:
                 self._execution(fields)
                 if fields.get('790'):
                     self.gw.status_answered(fields['790'])
+                if fields.get('584') and fields.get('912', 'Y') == 'Y':
+                    # The last report of a Mass Order Status answer.
+                    self.gw.status_answered(fields['584'])
             elif msg_type == '9':
                 self._cancel_reject(fields)
             elif msg_type in ('j', '3'):
@@ -1560,6 +1642,7 @@ class AlgoOrderRouter:
             'orig_clordid': f.get('41') or '',
             'order_id': f.get('37') or '',
             'trade_id': f.get('527') or '',
+            'exchange_trade_id': f.get('1003') or '',
             'venue_time': f.get('60') or '', 'account': parties.get('24') or f.get('1') or '',
             'security_id': f.get('48') or '',
             'symbol': ' '.join(p for p in (f.get('55'), f.get('200')) if p),
@@ -1604,6 +1687,8 @@ class AlgoOrderRouter:
             self.by_order_id[f['37']] = vo.clordid
         exec_type = f.get('150', '')
         what = stellar_exec.kind(f)
+        if stellar_exec.is_status_answer(f):
+            exec_type = 'I'         # a Mass Order Status answer's 150=5 is not a replace
         if what in (stellar_exec.BUST, stellar_exec.CORRECTION):
             # A change to an EARLIER fill: said, never booked as a new one.
             self._emit('TRADE_CHANGE', rec, stellar_exec.correction_text(f, what))

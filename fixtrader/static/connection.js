@@ -24,6 +24,7 @@
     $('disconnect').disabled = !ready || connection?.state === 'DOWN';
     // Only with the Order Router down: the numbers it starts from next.
     $('reset_sequences').disabled = !ready || !['DOWN', 'ERROR'].includes(connection?.state);
+    $('skip_sequence').disabled = $('reset_sequences').disabled;
   }
 
   function render(snapshot) {
@@ -96,13 +97,13 @@
     setTimeout(poll, 1000);
   }
 
-  async function command(action) {
+  async function command(action, extra = {}) {
     if (busy || !current?.engine?.fix_connection) return;
     busy = true; controls();
     $('action-result').className = 'feedback'; $('action-result').textContent = 'Sending request to the FIX engine…';
     try {
       const queued = await request('/api/command', {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:`fix_${action}`, args:{venue:current.engine.fix_connection.venue}})});
+        body:JSON.stringify({action:`fix_${action}`, args:{...extra, venue:current.engine.fix_connection.venue}})});
       if (!queued.ok) throw new Error(queued.error || 'Connection request was refused.');
       const deadline = Date.now() + 40000;
       let result;
@@ -113,7 +114,7 @@
       }
       if (!result || result.pending) throw new Error('The engine has not answered. Check its status before retrying.');
       if (!result.ok) throw new Error(result.error || result.rows?.[0]?.detail || 'Request failed.');
-      $('action-result').textContent = action === 'disconnect' ? 'FIX sessions disconnected.' : action === 'reconnect' ? 'Reconnect scheduled. The sessions will reconnect after a 10-second pause.' : action === 'reset_sequences' ? 'Order Router sequence numbers reset: the next logon starts from 1.' : 'Connection requested. Waiting for Stellar to acknowledge logon.';
+      $('action-result').textContent = action === 'disconnect' ? 'FIX sessions disconnected.' : action === 'reconnect' ? 'Reconnect scheduled. The sessions will reconnect after a 10-second pause.' : action === 'reset_sequences' ? 'Order Router sequence numbers reset: the next logon starts from 1.' : action === 'skip_sequence' ? result.text : 'Connection requested. Waiting for Stellar to acknowledge logon.';
       render(await request('/api/snapshot'));
     } catch (error) { $('action-result').textContent = error.message; $('action-result').className = 'feedback error'; }
     finally {busy = false; controls();}
@@ -129,6 +130,17 @@
     $('action-result').className = 'feedback';
     $('action-result').textContent = 'Only when Stellar confirms it has reset its side of the Order Router: the next logon then starts from 1. Press again within 5 seconds.';
     setTimeout(() => { if (resetArmed) { resetArmed = 0; $('reset_sequences').textContent = 'Reset sequence numbers'; } }, 5000);
+  });
+  // The gap-fill conformance test only: the same two-press confirmation.
+  let skipArmed = 0;
+  const skipLabel = 'Skip ahead +10 (gap-fill test)';
+  $('skip_sequence').addEventListener('click', () => {
+    if (Date.now() - skipArmed < 5000) { skipArmed = 0; $('skip_sequence').textContent = skipLabel; command('skip_sequence', {by: 10}); return; }
+    skipArmed = Date.now();
+    $('skip_sequence').textContent = 'Press again to skip';
+    $('action-result').className = 'feedback';
+    $('action-result').textContent = "For Stellar's conformance test of a GapFill only: the next Order Router logon goes 10 numbers ahead; Stellar asks for them and they are answered with a GapFill. Press again within 5 seconds.";
+    setTimeout(() => { if (skipArmed) { skipArmed = 0; $('skip_sequence').textContent = skipLabel; } }, 5000);
   });
   poll();
 })();

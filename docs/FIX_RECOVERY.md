@@ -47,8 +47,15 @@ carrying the 790:
 Every report goes through the same code as a live one: a fill already booked
 is never booked twice (by ExecID), a strategy leg is never booked, a bust or
 correction is said. While the sweep runs, Algo entries wait; exits never do.
-An order of ours whose OrderID was never heard cannot be asked about, or
-cancelled (Stellar cancels by OrderID): it is said, never assumed gone.
+An order of ours whose OrderID was never heard (its acknowledgement lost)
+cannot be asked about by H, or cancelled — Stellar cancels by OrderID. While
+there is one, the sweep also sends ONE **Mass Order Status Request (AF)**
+(585=7, all orders; spec 2.19, added in 2025). Stellar answers with one report
+per working order, carrying the 584 and ending with 912=Y; the report naming
+our ClOrdID gives its OrderID, and from then on it can be cancelled. Stellar's
+example answers with ExecType 5: a report carrying 584 is a STATUS, never a
+replace. No answer in `RECOVERY_TIMEOUT_SEC` fails the sweep, naming the
+orders — never assumed gone.
 
 ## On the screen
 

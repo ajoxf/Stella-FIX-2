@@ -382,6 +382,13 @@ class ManualTerminal:
         return bool(order_id) and any(o.get('venue_order_id') == order_id
                                       for o in self.orders.values())
 
+    def unheard_orders(self):
+        """Manual tickets Stellar may be working whose OrderID was never
+        heard: asked about by Mass Order Status in the sweep."""
+        with self.lock:
+            return [o['current_id'] for o in self.orders.values()
+                    if o['status'] not in TERMINAL and not o.get('venue_order_id')]
+
     def status_targets(self):
         """Every manual ticket Stellar may still be working (or whose state
         this program lost), with Stellar's OrderID: asked about after each
@@ -515,14 +522,22 @@ class ManualTerminal:
         """A Security List Request (x): Stellar answers with every instrument
         matching a SYMBOL and a CFI code (and an exchange, in its examples).
         An option is asked for as calls and puts both; the expiry month is
-        not a field of the request, so it filters the answer here."""
+        not a field of the request, so it filters the answer here.
+
+        Stellar's spec marks Symbol (55) and CFICode (461) as required. Its
+        conformance test also asks for a request by CFI code alone, by
+        symbol alone, by market (207) alone and by market and symbol. So any
+        of the three may be left out ('ANY' type sends no 461), and only
+        what is given is sent. What Stellar answers is shown as it comes."""
         with self.lock:
             self.session('Market Data')
-            exchange = clean(args.get('exchange'), 'Exchange', True)
-            symbol = clean(args.get('symbol'), 'Product symbol', True)
-            security_type = clean(args.get('security_type', 'FUT'))
-            if security_type not in CFI_BY_TYPE:
+            exchange = clean(args.get('exchange', ''), 'Exchange')
+            symbol = clean(args.get('symbol', ''), 'Product symbol')
+            security_type = clean(args.get('security_type', 'FUT')) or 'ANY'
+            if security_type != 'ANY' and security_type not in CFI_BY_TYPE:
                 raise ValueError('Unsupported instrument type')
+            if not (exchange or symbol or security_type != 'ANY'):
+                raise ValueError('Give a product symbol, an exchange or an instrument type')
             maturity = clean(args.get('maturity', ''))
             if maturity and (len(maturity) != 6 or not maturity.isdigit()):
                 raise ValueError('Expiry month must be YYYYMM')
@@ -536,11 +551,13 @@ class ManualTerminal:
             else:
                 self.instruments.clear()
                 self._search_ids = {request_id}
-            for n, cfi in enumerate(CFI_BY_TYPE[security_type]):
+            for n, cfi in enumerate(CFI_BY_TYPE.get(security_type, ('',))):
                 rid = request_id if n == 0 else request_id + '-' + str(n)
                 self._search_ids.add(rid)
-                self._send('Market Data', 'x', [('320', rid), ('559', '0'), ('55', symbol),
-                                                ('461', cfi), ('207', exchange)])
+                fields = [('320', rid), ('559', '0')]
+                fields += [(tag, value) for tag, value in
+                           (('55', symbol), ('461', cfi), ('207', exchange)) if value]
+                self._send('Market Data', 'x', fields)
             self._search_count += 1
             return {'ok': True, 'request_id': request_id}
 
@@ -1355,7 +1372,8 @@ class ManualTerminal:
                 stale = order['status'] in TERMINAL and reported not in TERMINAL
                 order['status'] = self._later_status(order['status'], reported)
                 pending = order.get('pending')
-                if pending and fields.get('11') == pending['id'] and fields.get('150') == '5':
+                if (pending and fields.get('11') == pending['id'] and fields.get('150') == '5'
+                        and not stellar_exec.is_status_answer(fields)):
                     order['ticket'] = pending['ticket']
                     order['current_id'] = pending['id']
                     order['pending'] = None
@@ -1373,7 +1391,7 @@ class ManualTerminal:
                     reported_cum = float(fields.get('14') or 0)
                 except ValueError:
                     reported_cum = 0.0
-                if fields.get('150') == 'I' and reported_cum > float(order.get('filled_qty') or 0) + 1e-9:
+                if stellar_exec.is_status_answer(fields) and reported_cum > float(order.get('filled_qty') or 0) + 1e-9:
                     order['text'] = (f"Stellar reports {reported_cum:g} filled but this program has "
                                      f"{float(order.get('filled_qty') or 0):g} — the trade report was not "
                                      f"received; check the order in Stellar")

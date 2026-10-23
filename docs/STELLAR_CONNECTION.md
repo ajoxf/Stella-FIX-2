@@ -5,8 +5,8 @@ sessions, both with TargetCompID `STELLAR`:
 
 | Session | Spec | Messages |
 |---|---|---|
-| **Order Router** | Stellar FIX Order Router Specification (03/04/2018) | D / AB new order (single / multi-leg), G / AC cancel-replace, F cancel, H order status → 8 execution report, 9 cancel reject |
-| **Market Data** | Stellar FIX Market Data Feed Specification (29/09/2017) | x security list request → y security list, V market data request → W snapshot / X incremental, f security status |
+| **Order Router** | Stellar FIX Order Router Specification (19/03/2025) | D / AB new order (single / multi-leg), G / AC cancel-replace, F cancel, H order status, AF mass order status → 8 execution report, 9 cancel reject |
+| **Market Data** | Stellar FIX Market Data Feed Specification (17/05/2024) | x security list request → y security list, V market data request → W snapshot / X incremental, f security status |
 
 No QuickFIX: the session layer (`NativeFixSession`) is plain Python, the
 same one the TT desk used, moved to FIX 4.4.
@@ -43,7 +43,7 @@ Open http://127.0.0.1:8000/exchanges and fill in the venue `STELLAR-UAT`
 | TargetCompID | always | `STELLAR` |
 | Stellar User Name | 452=11 on every order (and 553 on the Logon if a password is set) | `Phil` |
 | Stellar Account | 452=24 on every order | — |
-| Exchange clearing account 1 | 452=1000: CME's SenderSubID, KRX's beneficiary account | — |
+| Exchange clearing account 1 | 452=1000: for CME, `SenderSubID:SenderLocationID` — Stellar sets tags 50 and 142 from it (else 50 is the user name); KRX's beneficiary account | — |
 | TLS | as Stellar provisioned the line — usually plain TCP | off |
 
 Passwords are typed on the same page — **Password** for the Order Router,
@@ -100,7 +100,14 @@ engine's sessions; reconnection waits ten seconds. **Reset sequence numbers**
 - **Cancel** needs Stellar's OrderID (37): a cancel asked for before the
   acknowledgement goes the moment it arrives.
 - **After each logon** every order of ours still recorded as working is asked
-  about with an Order Status Request (H) — see [FIX_RECOVERY.md](FIX_RECOVERY.md).
+  about with an Order Status Request (H), and one whose OrderID was never
+  heard by a Mass Order Status Request (AF) — see [FIX_RECOVERY.md](FIX_RECOVERY.md).
+- **Busts and corrections** (150=H / G) are said, naming the trade's 527 and,
+  when Stellar sends it, the exchange's TradeID (1003); the tape keeps 1003.
+- **Not used**: spreadMachine custom spreads (35=AB with 22=STS, 207=SPREAD_MACHINE,
+  the 957 group) — this desk trades the spreads the exchange lists.
+- **Conformance test.** Stellar certifies a FIX client on UAT before it
+  allows Production — see [STELLAR_CONFORMANCE.md](STELLAR_CONFORMANCE.md).
 - **Positions.** Stellar's Order Router provides none: `positions()` is None
   (unknown, never flat), and arming LIVE asks you to confirm that this book's
   own fills are the record.

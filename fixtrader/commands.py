@@ -116,7 +116,7 @@ def apply_command(engine, command: Dict[str, Any]) -> Dict[str, Any]:
                 raise ValueError('Unknown terminal action')
             return methods[operation](args)
         if action in ('fix_connect', 'fix_status', 'fix_disconnect', 'fix_reconnect',
-                      'fix_reset_sequences'):
+                      'fix_reset_sequences', 'fix_skip_sequence'):
             gateway = engine.gateway
             venue = getattr(gateway, 'venue', None)
             if venue is None or venue.name != args.get('venue'):
@@ -136,6 +136,11 @@ def apply_command(engine, command: Dict[str, Any]) -> Dict[str, Any]:
                         'Stellar FIX sequence mismatch. Connect/reconnect is blocked until '
                         'Stellar confirms its side of the sequence numbers and working '
                         'orders and fills have been reconciled — then Reset sequence numbers.')
+            if action == 'fix_skip_sequence':
+                skip = getattr(gateway, 'skip_sequence', None)
+                if not callable(skip):
+                    return {'ok': False, 'error': 'this venue keeps no sequence numbers'}
+                return skip(int(args.get('by') or 10))
             if action == 'fix_reset_sequences':
                 reset = getattr(gateway, 'reset_sequences', None)
                 if not callable(reset):

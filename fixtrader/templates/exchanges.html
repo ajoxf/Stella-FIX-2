@@ -73,7 +73,7 @@
       <label class="f"><span>Stellar Account <small>452=24 on every order</small></span>
         <input type="text" id="v-account"></label>
       <label class="f"><span>Exchange clearing account 1
-          <small>452=1000 — CME's SenderSubID, KRX's beneficiary account; blank = not sent</small></span>
+          <small>452=1000 — for CME write SenderSubID:SenderLocationID (Stellar sets tags 50 and 142 from it); KRX's beneficiary account; blank = not sent</small></span>
         <input type="text" id="v-clearing_account" placeholder="none"></label>
       <label class="f"><span>Send 77 Open/Close
           <small>not in Stellar's spec; untick only if Stellar refuses the tag</small></span>

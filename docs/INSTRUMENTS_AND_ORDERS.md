@@ -112,4 +112,4 @@ positions), synthetic multi-order spreads and bracket/OCO orders are not
 implemented. An Open/Close flag is not a client-side reduce-only guarantee.
 
 Protocol references: the Stellar FIX Order Router Specification (03/04/2018)
-and the Stellar FIX Market Data Feed Specification (29/09/2017).
+and the Stellar FIX Market Data Feed Specification (17/05/2024).
