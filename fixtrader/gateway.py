@@ -185,7 +185,7 @@ class FixGateway:
                 configs['Market Data'] = dict(common, host=v.md_host, port=v.md_port,
                     sender_comp_id=v.md_sender_comp_id,
                     target_comp_id=v.md_target_comp_id or v.target_comp_id or 'STELLAR',
-                    password=os.environ.get(v.md_password_env, '') if v.md_password_env else '',
+                    password=v.md_password or '',
                     reset_on_logon=True, persist=False)
             for name, cfg in configs.items():
                 # No password is allowed: Stellar's Logon (98 / 108) carries
@@ -418,9 +418,7 @@ class FixGateway:
                    'sender_comp_id': v.md_sender_comp_id if md else v.sender_comp_id,
                    'target_comp_id': ((v.md_target_comp_id or v.target_comp_id) if md
                                       else v.target_comp_id) or 'STELLAR',
-                   'password_set': (bool(os.environ.get(v.md_password_env))
-                                    if md and v.md_password_env else
-                                    False if md else v.has_password),
+                   'password_set': v.has_md_password if md else v.has_password,
                    'status': 'CONNECTING' if self._reconnect_at else 'DISCONNECTED',
                    'error': '', 'incoming_count': 0, 'outgoing_count': 0,
                    'in_seq': 0, 'out_seq': 0, 'last_message': '',

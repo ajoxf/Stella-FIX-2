@@ -726,7 +726,9 @@ def create_app(config_path: str = "config.json",
         config = load_config()
         data = dict(request.get_json(silent=True) or {})
         password = data.pop('password', None)
+        md_password = data.pop('md_password', None)
         data.pop('password_set', None)
+        data.pop('md_password_set', None)
         data.pop('name', None)
 
         existing = config.venues.get(name)
@@ -734,6 +736,10 @@ def create_app(config_path: str = "config.json",
         raw.update({k: v for k, v in data.items() if k in VENUE_FIELDS})
         raw.setdefault('environment', '')
         raw.setdefault('password_env', env_key_for(name))
+        # Market Data's password has a .env key of its own, recorded on the
+        # venue so the engine reads the same one the page wrote.
+        if not raw.get('md_password_env'):
+            raw['md_password_env'] = raw['password_env'] + '_MD'
         try:
             venue = VenueConfig.from_dict(name, raw)
         except ValueError as e:
@@ -745,6 +751,8 @@ def create_app(config_path: str = "config.json",
         config.save()
         if password:
             write_env_value(venue.password_env, password)
+        if md_password:
+            write_env_value(venue.md_password_key, md_password)
         return jsonify({'ok': True, 'venue': venue.to_public_dict()})
 
     @app.delete('/api/venues/<path:name>')

@@ -32,11 +32,10 @@ trading.
    python -m pytest tests/ -q
    ```
 
-3. Copy `.env.example` to `.env`. Enter venue passwords on the target machine
-   through the Exchanges page or a protected secret-transfer method. Do not
-   paste `.env` into chat, email, source control, or an ordinary deployment
-   archive. The app's configured environment-variable names are shown in
-   Exchanges; keep those names and values in `.env` only.
+3. Do not create or edit `.env` by hand: the program creates it on first
+   start, and venue passwords (Order Router and Market Data) are typed on
+   the Exchanges page, which writes them there. Do not paste `.env` into
+   chat, email, source control, or an ordinary deployment archive.
 4. Configure the correct UAT venue, FIX endpoints, session identifiers,
    contracts, and market-data identity in the UI. Verify the venue's network
    allowlist/VPN and Windows firewall from that machine. Keep UAT and PROD

@@ -20,6 +20,15 @@ if (-not $python) {
     }
 }
 
+# First run: the Stellar venue comes from the example, so everything after
+# this is done on the Exchanges page - nothing to copy or edit by hand. An
+# existing config is never overwritten.
+$config = Join-Path $PSScriptRoot 'config.stellar-uat.json'
+if (-not (Test-Path $config)) {
+    Copy-Item (Join-Path $PSScriptRoot 'config.stellar-uat.example.json') $config
+    Write-Host "[run_fix] created config.stellar-uat.json from the example - fill in the venue on the Exchanges page"
+}
+
 $env:PYTHONUNBUFFERED = '1'
 # Python's logging writes to STDERR. Under Windows PowerShell 5.1, a native
 # command's stderr merged with 2>&1 arrives as an ErrorRecord, and with

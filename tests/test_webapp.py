@@ -497,3 +497,42 @@ def test_the_backtest_replays_the_recording_through_the_algo(tmp_path):
     assert 'trades' in out['without_protections']
     assert any('inside a candle' in x for x in out['caveats'])
     assert c.get('/api/backtest/nope').status_code == 404
+
+
+def test_the_market_data_password_is_typed_on_the_page_and_goes_only_to_env(
+        client, tmp_path, monkeypatch):
+    """Stellar may issue Market Data its own password. It is entered on the
+    Exchanges page like the Order Router's: written to .env under a key of
+    its own (recorded on the venue, so the engine reads the same one),
+    reported as set or not set, and never returned."""
+    c, tp = client
+    monkeypatch.chdir(tp)
+    monkeypatch.delenv('FIX_STELLAR_UAT_MD', raising=False)
+    res = c.post('/api/venues/Stellar UAT', json={
+        'environment': 'UAT', 'host': 'or.example', 'port': 9001,
+        'md_host': 'md.example', 'md_port': 9002,
+        'sender_comp_id': 'STELLAR_UAT', 'md_sender_comp_id': 'STELLAR_UAT_MD',
+        'target_comp_id': 'STELLAR', 'md_password': 'mdsup3rsecret'})
+    venue = res.get_json()['venue']
+    assert venue['md_password_set'] is True
+    assert venue['md_password_env'] == 'FIX_STELLAR_UAT_MD'
+    assert 'mdsup3rsecret' not in json.dumps(venue)
+    assert 'FIX_STELLAR_UAT_MD=' in (tp / '.env').read_text()
+    assert 'mdsup3rsecret' not in (tp / 'config.json').read_text()
+    assert 'mdsup3rsecret' not in c.get('/api/venues').data.decode()
+    saved = TraderConfig.from_file(str(tp / 'config.json')).venues['Stellar UAT']
+    assert saved.md_password_env == 'FIX_STELLAR_UAT_MD'
+    # The control: re-saving with the field blank leaves it alone.
+    c.post('/api/venues/Stellar UAT', json={'environment': 'UAT', 'md_password': ''})
+    assert 'FIX_STELLAR_UAT_MD=' in (tp / '.env').read_text()
+    venues = {v['name']: v for v in c.get('/api/venues').get_json()}
+    assert venues['Stellar UAT']['md_password_set'] is True
+
+
+def test_without_a_market_data_password_it_is_reported_as_not_set(client, monkeypatch):
+    c, _ = client
+    monkeypatch.delenv('FIX_ORIENT_UAT_MD', raising=False)
+    venue = next(v for v in c.get('/api/venues').get_json()
+                 if v['password_env'] == 'FIX_ORIENT_UAT')
+    assert venue['password_set'] is True and venue['md_password_set'] is False
+    assert venue['md_password_env'] == 'FIX_ORIENT_UAT_MD'
