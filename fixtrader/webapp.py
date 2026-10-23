@@ -77,8 +77,10 @@ def create_app(config_path: str = "config.json",
     def index():
         # A Stellar venue lands on its connection dashboard: the sessions are
         # brought up there before anything else on the desk can work.
-        if any(v.host and (v.target_comp_id or '').upper() == 'STELLAR'
-               for v in load_config().venues.values()):
+        # So does an engine still waiting for a venue to be entered.
+        if (any(v.host and (v.target_comp_id or '').upper() == 'STELLAR'
+                for v in load_config().venues.values())
+                or (read_status().get('engine') or {}).get('waiting_for_venue')):
             return render_template('connection.html', asset_version=ASSET_VERSION)
         return render_template('index.html', asset_version=ASSET_VERSION)
 

@@ -27,7 +27,12 @@ shell). On the first run it creates `config.stellar-uat.json` from the
 example — never over an existing one — and `.env` is created empty; neither
 is opened or edited by hand. Everything else is done in the browser.
 
-Open http://127.0.0.1:8000/exchanges and fill in the venue `STELLAR-UAT`:
+Until a venue has a host the engine WAITS — the Connection page says
+"Waiting for a Stellar venue" — and connects by itself the moment one is
+saved; it never falls back to the simulator.
+
+Open http://127.0.0.1:8000/exchanges and fill in the venue `STELLAR-UAT`
+(or create it with **New venue**):
 
 | Field | What Stellar issued | Example |
 |---|---|---|

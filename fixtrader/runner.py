@@ -24,6 +24,81 @@ from .engine import Engine
 logger = logging.getLogger("fixtrader.runner")
 
 
+def reachable_venues(config):
+    """The venues a FIX session could be opened to: enabled, with a host."""
+    return [v for v in config.venues.values() if v.host and v.enabled]
+
+
+#: What the screen says while the engine waits for a venue to connect to.
+WAITING_FOR_VENUE = (
+    "No Stellar venue to connect to yet — open the Exchanges page, fill in "
+    "the venue (Order Router and Market Data hosts and ports, CompIDs, "
+    "Stellar User Name and Account) and Save. The engine connects as soon as "
+    "it is saved; nothing needs restarting.")
+
+
+def wait_for_venue(config_path: str, status_path: str,
+                   should_stop: Optional[Callable[[], bool]] = None,
+                   poll_sec: float = 1.0):
+    """Live FIX mode with no venue to connect to: WAIT for one, saying so.
+
+    The venue is entered on the Exchanges page — the web process is up for
+    exactly that — so an engine that died here took the whole launcher down
+    after three quick deaths, and with it the page the venue is entered on.
+    The simulator is not a fallback (a screen that looks live and is not is
+    the worse error), so the engine publishes a snapshot that says it is
+    waiting and why, re-reads the config, and returns it the moment it holds
+    a venue with a host. Returns None if told to stop first."""
+    stop = {'now': False}
+
+    def _stop(signum, frame):
+        stop['now'] = True
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _stop)
+        except (ValueError, OSError):
+            pass                      # not the main thread; the caller stops us
+
+    logger.warning(WAITING_FOR_VENUE)
+    try:
+        while not stop['now'] and not (should_stop and should_stop()):
+            config = TraderConfig.from_file(config_path)
+            if reachable_venues(config):
+                logger.info("a venue is configured — connecting")
+                return config
+            try:
+                atomicfile.write_json(status_path, {
+                    'ts': datetime.now(timezone.utc).isoformat(),
+                    'engine': {'alive': True, 'simulated': False,
+                               'waiting_for_venue': True,
+                               'text': WAITING_FOR_VENUE,
+                               'session': {'state': 'DOWN',
+                                           'text': WAITING_FOR_VENUE}},
+                    'contracts': []})
+            except Exception as e:                       # noqa: BLE001
+                logger.warning("could not publish the waiting snapshot: %s", e)
+            time.sleep(poll_sec)
+    finally:
+        signal_default = getattr(signal, 'SIG_DFL', None)
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                signal.signal(sig, signal_default)
+            except (ValueError, OSError, TypeError):
+                pass
+    # Stopped while waiting: say so, or a quick restart is refused as "another
+    # engine is publishing".
+    try:
+        atomicfile.write_json(status_path, {
+            'ts': datetime.now(timezone.utc).isoformat(),
+            'engine': {'alive': False, 'stopped': True, 'simulated': False,
+                       'text': 'the engine stopped while waiting for a venue'},
+            'contracts': []})
+    except Exception:                                    # noqa: BLE001
+        pass
+    return None
+
+
 def build_gateway(config, simulated: bool, runtime_dir: str = ""):
     """The simulator, or the real session once it is wired.
 
@@ -35,7 +110,7 @@ def build_gateway(config, simulated: bool, runtime_dir: str = ""):
     # screen says SIMULATED where a PROD badge would go. The alternative is a
     # FIX session pointed at nothing, which looks like a connection failure
     # somebody could waste an afternoon retyping a port to fix.
-    reachable = [v for v in config.venues.values() if v.host and v.enabled]
+    reachable = reachable_venues(config)
     require_live = config.settings.get('REQUIRE_LIVE_FIX') is True
     if require_live and simulated:
         raise RuntimeError('This configuration requires live FIX; simulated mode is refused')
@@ -121,6 +196,10 @@ def run(config_path: str = "config.json", status_path: str = "status.json",
     config = TraderConfig.from_file(config_path)
     runtime_dir = os.path.dirname(os.path.abspath(status_path))
     os.makedirs(runtime_dir, exist_ok=True)
+    if not simulated and not reachable_venues(config) and not once:
+        config = wait_for_venue(config_path, status_path, should_stop)
+        if config is None:
+            return
     from .config import database_path as _database_path
     db = Database(_database_path(config, status_path))
     gateway, is_sim = build_gateway(config, simulated, runtime_dir)
