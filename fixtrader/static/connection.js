@@ -31,7 +31,11 @@
     current = snapshot;
     const engine = snapshot.engine || {};
     const connection = engine.fix_connection;
-    $('environment').textContent = engine.simulated ? 'SIMULATED' : engine.environment || 'UNKNOWN';
+    // Served at /connection the top bar's badge is #environment; served at /
+    // (a Stellar venue lands here) it is #env-badge. A missing one threw here,
+    // and the page read "Cannot reach FIX-Trader" with the engine running.
+    const envBadge = $('environment') || $('env-badge');
+    if (envBadge) envBadge.textContent = engine.simulated ? 'SIMULATED' : engine.environment || 'UNKNOWN';
     $('engine-health').textContent = engine.alive ? 'Engine online · updates every second' : 'Engine offline';
     $('engine-health').className = 'health' + (engine.alive ? ' good' : '');
     const state = engine.alive ? connection?.state : 'ERROR';
@@ -39,8 +43,8 @@
       $('action-result').className = 'feedback';
       $('action-result').textContent = 'Both FIX sessions are connected.';
     }
-    $('overall-state').textContent = !engine.alive ? 'Engine unavailable' : connection ? displayState(state) : 'No FIX session configured';
-    $('overall-detail').textContent = !engine.alive ? (engine.text || 'Start FIX-Trader to manage the connection.') : connection?.reconnect_in ? `Waiting ${connection.reconnect_in}s before reconnecting to Stellar…` : connection?.text || 'Configure a Stellar venue and start the FIX engine.';
+    $('overall-state').textContent = !engine.alive ? 'Engine unavailable' : connection ? displayState(state) : engine.waiting_for_venue ? 'Waiting for a Stellar venue' : 'No FIX session configured';
+    $('overall-detail').textContent = !engine.alive ? (engine.text || 'Start FIX-Trader to manage the connection.') : connection?.reconnect_in ? `Waiting ${connection.reconnect_in}s before reconnecting to Stellar…` : connection?.text || engine.text || 'Configure a Stellar venue and start the FIX engine.';
     document.querySelector('.summary').className = 'summary ' + stateClass(state);
     $('venue').textContent = connection?.venue || 'No venue';
     const cards = document.createDocumentFragment();

@@ -26,10 +26,11 @@ as event metadata and never replace the midpoint used by the strategy.
 Bursts coalesce by contract; a disconnected Market Data session clears its
 books and pending events. The feed reports its coalesced count as `dropped`.
 
-Copy `config.stellar-uat.example.json` to `config.stellar-uat.json`, fill in
-the venue on the Exchanges page (hosts, ports, CompIDs, Stellar User Name and
-Account) and run `run_fix.ps1` or `run_fix.bat`; a password, if Stellar issued
-one, goes in `.env`. The FIX audit records incoming messages, while DEBUG
+Run `run_fix.bat`: the first run creates `config.stellar-uat.json` from the
+example. Then fill in the venue on the Exchanges page — hosts, ports,
+CompIDs, Stellar User Name and Account, and the Order Router and Market Data
+passwords if Stellar issued any (the page keeps them in `.env`; nothing is
+edited by hand). The FIX audit records incoming messages, while DEBUG
 logging for `fixtrader.gateway` and `fixtrader.engine` records normalized
 events and strategy consumption. The Algo's orders go to Stellar over the
 Order Router (FIX 4.4) — but only once a person arms **LIVE**.

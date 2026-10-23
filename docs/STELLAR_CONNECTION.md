@@ -13,14 +13,26 @@ same one the TT desk used, moved to FIX 4.4.
 
 ## Setting it up
 
+Install once, from the program folder in **PowerShell** (not Command
+Prompt — there a `.ps1` path is opened in Notepad instead of being run):
+
 ```powershell
-python -m pip install -r requirements.txt
-copy config.stellar-uat.example.json config.stellar-uat.json
-.\run_fix.ps1
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Then open http://127.0.0.1:8000/exchanges and fill in the venue
-`STELLAR-UAT`:
+No activation is needed: `run_fix.ps1` uses `.venv\Scripts\python.exe` by
+itself. Then start it with `run_fix.bat` (double-click, or from either
+shell). On the first run it creates `config.stellar-uat.json` from the
+example — never over an existing one — and `.env` is created empty; neither
+is opened or edited by hand. Everything else is done in the browser.
+
+Until a venue has a host the engine WAITS — the Connection page says
+"Waiting for a Stellar venue" — and connects by itself the moment one is
+saved; it never falls back to the simulator.
+
+Open http://127.0.0.1:8000/exchanges and fill in the venue `STELLAR-UAT`
+(or create it with **New venue**):
 
 | Field | What Stellar issued | Example |
 |---|---|---|
@@ -34,10 +46,15 @@ Then open http://127.0.0.1:8000/exchanges and fill in the venue
 | Exchange clearing account 1 | 452=1000: CME's SenderSubID, KRX's beneficiary account | — |
 | TLS | as Stellar provisioned the line — usually plain TCP | off |
 
-Passwords go in `.env` (`STELLAR_UAT_PASSWORD`, `STELLAR_UAT_MD_PASSWORD`),
-never in the config. Stellar's Logon lists no credentials (98 / 108 only): a
-session authorised by its address leaves them blank and sends a bare Logon;
-one Stellar issued a password for sends it as Username (553) / Password (554).
+Passwords are typed on the same page — **Password** for the Order Router,
+**Market Data password** for Market Data — and the page writes them to `.env`
+(`STELLAR_UAT_PASSWORD`, `STELLAR_UAT_MD_PASSWORD`); they never reach the
+config, and the page only ever says "set" or "not set". A blank field leaves
+a stored password alone. Stellar's Logon lists no credentials (98 / 108
+only): a session authorised by its address leaves them blank and sends a bare
+Logon; one Stellar issued a password for sends it as Username (553) /
+Password (554). Saved session settings and passwords take effect when the
+program is restarted.
 
 Equivalent launch command:
 

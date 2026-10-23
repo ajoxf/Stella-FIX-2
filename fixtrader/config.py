@@ -452,6 +452,22 @@ class VenueConfig:
     def has_password(self) -> bool:
         return bool(self.password)
 
+    @property
+    def md_password_key(self) -> str:
+        """The .env variable the Market Data session's password lives in:
+        the one configured, else the venue's own key with `_MD`."""
+        return self.md_password_env or (self.password_env + '_MD')
+
+    @property
+    def md_password(self) -> Optional[str]:
+        """Market Data's own password, read the same way as `password`.
+        Never returned by an API."""
+        return os.environ.get(self.md_password_key) or None
+
+    @property
+    def has_md_password(self) -> bool:
+        return bool(self.md_password)
+
     def to_dict(self) -> Dict[str, Any]:
         """For config.json. Carries the .env KEY, never the value."""
         return {
@@ -488,6 +504,8 @@ class VenueConfig:
         d = self.to_dict()
         d['name'] = self.name
         d['password_set'] = self.has_password
+        d['md_password_set'] = self.has_md_password
+        d['md_password_env'] = self.md_password_key
         return d
 
     @classmethod
@@ -496,6 +514,8 @@ class VenueConfig:
         raw.pop('name', None)
         raw.pop('password_set', None)
         raw.pop('password', None)        # never accepted from a file
+        raw.pop('md_password', None)
+        raw.pop('md_password_set', None)
         # TT's FIX Recovery address, in a config from the TT desk: Stellar
         # has no such service.
         raw.pop('recovery_host', None)

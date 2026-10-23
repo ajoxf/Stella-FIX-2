@@ -282,3 +282,32 @@ def test_a_prod_venue_is_refused_and_opens_no_socket(monkeypatch):
     gateway = FixGateway(v)
     gateway.start()
     assert 'UAT venue only' in gateway.state_text()
+
+
+def test_the_market_data_password_from_the_page_reaches_its_logon(monkeypatch):
+    """A Market Data password saved on the Exchanges page lives under the
+    venue's own `_MD` key; its Logon carries it, and only it."""
+    peers = []
+
+    def connect(*args, **kwargs):
+        peer = Peer()
+        peers.append(peer)
+        return peer
+    monkeypatch.setattr(socket, 'create_connection', connect)
+    v = venue(monkeypatch)
+    v.md_password_env = ''                          # as an older config has it
+    monkeypatch.setenv(v.password_env + '_MD', 'md-from-the-page')
+    gateway = FixGateway(v)
+    gateway.start()
+    try:
+        deadline = time.monotonic() + 2
+        while gateway.state() == SessionState.CONNECTING and time.monotonic() < deadline:
+            time.sleep(0.01)
+        by_comp = {p.sent[0]['49']: p.sent[0] for p in peers}
+        assert by_comp['STELLAR_UAT_MD']['554'] == 'md-from-the-page'
+        assert by_comp['STELLAR_UAT']['554'] == 'or-secret'
+        rows = {r['name']: r for r in gateway.connection_snapshot()['sessions']}
+        assert rows['Market Data']['password_set'] is True
+        assert 'md-from-the-page' not in str(gateway.connection_snapshot())
+    finally:
+        gateway.stop()

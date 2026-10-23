@@ -93,6 +93,13 @@ function showVenue(v) {
   document.getElementById('pw-note').textContent = v
     ? 'stored in .env as ' + v.password_env
     : 'stored in .env, never in config';
+  const mdpw = document.getElementById('v-md_password');
+  mdpw.value = '';
+  mdpw.placeholder = v && v.md_password_set ? 'set — leave blank to keep it'
+    : 'not set';
+  document.getElementById('md-pw-note').textContent = v
+    ? 'only if Stellar issued one for Market Data — stored in .env as ' + v.md_password_env
+    : 'only if Stellar issued one for Market Data — stored in .env, never in config';
   document.getElementById('v-delete').hidden = !v;
   document.getElementById('diag-card').hidden = true;
 }
@@ -125,6 +132,8 @@ document.getElementById('v-save').onclick = async () => {
   VENUE_BOOL.forEach((k) => { body[k] = vField(k).checked; });
   const pw = document.getElementById('v-password').value;
   if (pw) body.password = pw;              // blank leaves the stored one alone
+  const mdpw = document.getElementById('v-md_password').value;
+  if (mdpw) body.md_password = mdpw;       // likewise
 
   // Turning a venue live is a decision, and it is made once, out loud.
   if (body.environment === 'PROD') {
@@ -141,6 +150,7 @@ document.getElementById('v-save').onclick = async () => {
     return;
   }
   document.getElementById('v-password').value = '';
+  document.getElementById('v-md_password').value = '';
   toast('OK', 'SAVED', name + ' saved');
   await loadVenues();
   editVenue(name);

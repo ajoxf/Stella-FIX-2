@@ -350,3 +350,83 @@ def test_a_live_heartbeat_still_refuses_a_second_engine(tmp_path):
         'ts': datetime.now(timezone.utc).isoformat(),
         'engine': {'alive': True}})
     assert runner.another_engine_is_running(str(status)) is not None
+
+
+# -- live mode with no venue yet: wait for one, never die ---------------------
+
+def test_with_no_venue_yet_the_engine_waits_says_why_and_connects_once_one_is_saved(
+        tmp_path, monkeypatch):
+    """Found on the first Stellar run: live mode with no venue raised, the
+    launcher gave up after three quick deaths and took the web page — the one
+    the venue is entered on — down with it. The engine now WAITS, publishing
+    why, and connects as soon as a venue with a host is saved. It never falls
+    back to the simulator."""
+    import threading
+    from fixtrader.config import VenueConfig
+    from tests.fake_stellar import Exchange, install
+    monkeypatch.chdir(tmp_path)
+    install(monkeypatch, Exchange())
+    cfg = a_config(tmp_path)
+    cfg.venues['STELLAR-UAT'] = VenueConfig(
+        name='STELLAR-UAT', environment='UAT', fix_version='FIX.4.4',
+        sender_comp_id='STELLAR_UAT', target_comp_id='STELLAR',
+        md_sender_comp_id='STELLAR_UAT_MD', use_tls=False)       # no host yet
+    cfg.save()
+    stop = threading.Event()
+    thread = threading.Thread(target=runner.run, kwargs=dict(
+        config_path=str(tmp_path / 'config.json'),
+        status_path=str(tmp_path / 'status.json'),
+        command_path=str(tmp_path / 'commands.jsonl'),
+        result_path=str(tmp_path / 'results.json'),
+        simulated=False, should_stop=stop.is_set), daemon=True)
+    thread.start()
+    try:
+        def snap():
+            try:
+                return json.loads((tmp_path / 'status.json').read_text())
+            except (OSError, ValueError):
+                return {}
+        deadline = time.monotonic() + 5
+        while not (snap().get('engine') or {}).get('waiting_for_venue') \
+                and time.monotonic() < deadline:
+            time.sleep(0.05)
+        engine = snap()['engine']
+        assert engine['alive'] is True and engine['simulated'] is False
+        assert 'Exchanges page' in engine['text']
+        assert thread.is_alive()                         # waiting, not dead
+        # The venue is saved, as the Exchanges page saves it.
+        cfg = TraderConfig.from_file(str(tmp_path / 'config.json'))
+        venue = cfg.venues['STELLAR-UAT']
+        venue.host, venue.port = 'or.example', 9001
+        venue.md_host, venue.md_port = 'md.example', 9002
+        cfg.save()
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            fix = (snap().get('engine') or {}).get('fix_connection') or {}
+            if fix.get('state') == 'LOGGED_ON':
+                break
+            time.sleep(0.1)
+        engine = snap()['engine']
+        assert not engine.get('waiting_for_venue')
+        assert engine['fix_connection']['state'] == 'LOGGED_ON'
+        assert engine['simulated'] is False
+    finally:
+        stop.set()
+        thread.join(timeout=20)
+
+
+def test_stopped_while_waiting_it_says_so_and_a_restart_is_not_refused(tmp_path):
+    """The control for the wait: stopped before a venue came, the engine
+    leaves a snapshot that says it stopped, so starting again at once is not
+    refused as "another engine is publishing"."""
+    a_config(tmp_path)
+    status = str(tmp_path / 'status.json')
+    calls = {'n': 0}
+
+    def stop_after_a_pass():
+        calls['n'] += 1
+        return calls['n'] > 1
+    assert runner.wait_for_venue(str(tmp_path / 'config.json'), status,
+                                 should_stop=stop_after_a_pass,
+                                 poll_sec=0.01) is None
+    assert runner.another_engine_is_running(status) is None
